@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "Bubble Shooter",
+    "slug": "bubble-shooter",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.khuriwalgroup.bubbleshooter",
+      "infoPlist": {
+        "UIStatusBarStyle": "UIStatusBarStyleLightContent"
+      }
+    },
+    "android": {
+      "package": "com.khuriwalgroup.bubbleshooter",
+      "statusBar": {
+        "barStyle": "light-content",
+        "backgroundColor": "#0f0f2e"
+      },
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-av"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "6765a13c-621d-444e-9428-8d1e3c339141"
+      }
+    },
+    "owner": "nareshkhuriwal"
+  }
+}
