@@ -14,3 +14,11 @@ android/app/*.keystore
 # Local machine config
 local.properties
 *.log
+node_modules/
+*.lock
+*.env
+*.env.*
+.idea/
+.vscode/
+.DS_Store
+*.iml
