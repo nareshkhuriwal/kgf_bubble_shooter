@@ -8,9 +8,28 @@ export type BubbleColor =
   | 'pink'
   | 'cyan';
 
+export type BubbleKind = 'normal' | 'stone' | 'locked' | 'ice' | 'hidden' | 'blocker';
+
+export type PowerUpKind =
+  | 'bomb'
+  | 'rainbow'
+  | 'fire'
+  | 'lightning'
+  | 'freeze'
+  | 'rocket';
+
+export type GameMode = 'classic' | 'timed' | 'endless' | 'challenge';
+
+export interface PlayBubble {
+  color: BubbleColor;
+  kind: BubbleKind;
+  powerUp?: PowerUpKind;
+}
+
 export interface Bubble {
   id: string;
   color: BubbleColor;
+  kind: BubbleKind;
   row: number;
   col: number;
   x: number;
@@ -21,6 +40,8 @@ export interface Bubble {
 
 export interface ProjectileBubble {
   color: BubbleColor;
+  kind: BubbleKind;
+  powerUp?: PowerUpKind;
   x: number;
   y: number;
   vx: number;
@@ -43,15 +64,28 @@ export interface GameState {
   starsEarned: number;
   lastPoppedIds: string[];   // ids that just matched & blasted this tick
   lastFallingIds: string[];  // ids that became unconnected this tick
+  nextBubble: PlayBubble;
+  bubblesRemaining: number;
+  initialBubbleCount: number;
+  coinsEarned: number;
+  mode: GameMode;
+  timeLeft?: number;
+  freezeTicks: number;
 }
 
 export interface LevelConfig {
   level: number;
+  world: number;
+  name: string;
   rows: number;
   cols: number;
   colors: BubbleColor[];
   shotsAllowed: number;
   targetScore: number;
+  obstacleRate?: number;
+  powerUpRate?: number;
+  movingRows?: boolean;
+  rotatingLayout?: boolean;
   bubblePattern?: string[][];
 }
 
@@ -61,6 +95,11 @@ export interface PlayerProgress {
   totalStars: number;     // sum of all levelStars
   highScore: number;
   unlockedUpTo: number;   // highest level unlocked (1-based)
+  coins: number;
+  achievements: string[];
+  lastDailyRewardAt?: string;
+  dailyStreak: number;
+  claimedDays: number;
 }
 
 export type GameAction =

@@ -40,13 +40,14 @@ export const BubbleGrid: React.FC<BubbleGridProps> = ({
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       {/* Live bubbles */}
       {liveBubbles.map(b => (
-        <BubbleView key={b.id} color={b.color} x={b.x} y={b.y} />
+        <BubbleView key={b.id} color={b.color} kind={b.kind} x={b.x} y={b.y} />
       ))}
       {/* Animating-out bubbles (popping / falling) */}
       {ghostBubbles.map(({ bubble, isPopping, isFalling }) => (
         <BubbleView
           key={`ghost-${bubble.id}`}
           color={bubble.color}
+          kind={bubble.kind}
           x={bubble.x}
           y={bubble.y}
           isPopping={isPopping}

@@ -1,5 +1,5 @@
 import { useReducer, useCallback, useRef, useEffect } from 'react';
-import { GameState, Bubble, BubbleColor } from '../types';
+import { GameState, Bubble } from '../types';
 import {
   LEVELS,
   TOTAL_LEVELS,
@@ -7,6 +7,9 @@ import {
   COMBO_MULTIPLIER,
   FALL_BONUS,
   SHOT_BONUS,
+  POWERUP_BONUS,
+  BUBBLE_RADIUS,
+  CANNON_LENGTH,
   CANNON_X,
   CANNON_Y,
   calcStars,
@@ -16,7 +19,7 @@ import {
   getBubblePosition,
   findMatches,
   findFloatingBubbles,
-  randomColor,
+  randomPlayBubble,
   getColorsInGrid,
   countBubbles,
 } from '../utils/gridUtils';
@@ -24,9 +27,11 @@ import {
   stepProjectile,
   checkCollision,
   angleToVector,
+  angleToUnitVector,
   aimAngle as calcAimAngle,
   clampAngle,
 } from '../utils/physics';
+import { resolvePowerUp } from '../systems/powerups';
 
 function getLevelConfig(level: number) {
   return LEVELS[Math.min(level - 1, LEVELS.length - 1)];
@@ -34,12 +39,16 @@ function getLevelConfig(level: number) {
 
 function buildInitialState(level: number, highScore: number): GameState {
   const config = getLevelConfig(level);
-  const grid = generateInitialGrid(config.rows, config.cols, config.colors);
+  const grid = generateInitialGrid(config.rows, config.cols, config.colors, config);
   const colorsInGrid = getColorsInGrid(grid);
+  const playableColors = colorsInGrid.length > 0 ? colorsInGrid : config.colors;
+  const nextBubble = randomPlayBubble(playableColors, config.powerUpRate ?? 0);
+  const initialBubbleCount = countBubbles(grid);
   return {
     grid,
     projectile: null,
-    nextColor: randomColor(colorsInGrid.length > 0 ? colorsInGrid : config.colors),
+    nextColor: nextBubble.color,
+    nextBubble,
     score: 0,
     level,
     shotsLeft: config.shotsAllowed,
@@ -51,6 +60,11 @@ function buildInitialState(level: number, highScore: number): GameState {
     starsEarned: 0,
     lastPoppedIds: [],
     lastFallingIds: [],
+    bubblesRemaining: initialBubbleCount,
+    initialBubbleCount,
+    coinsEarned: 0,
+    mode: 'classic',
+    freezeTicks: 0,
   };
 }
 
@@ -73,11 +87,22 @@ function gameReducer(state: GameState, action: EngineAction): GameState {
       if (state.projectile?.isMoving || state.isGameOver || state.isLevelComplete || state.shotsLeft <= 0)
         return state;
       const { vx, vy } = angleToVector(state.cannonAngle);
+      const unit = angleToUnitVector(state.cannonAngle);
+      const muzzleOffset = CANNON_LENGTH + BUBBLE_RADIUS * 0.35;
       return {
         ...state,
         lastPoppedIds: [],
         lastFallingIds: [],
-        projectile: { color: state.nextColor, x: CANNON_X, y: CANNON_Y, vx, vy, isMoving: true },
+        projectile: {
+          color: state.nextBubble.color,
+          kind: state.nextBubble.kind,
+          powerUp: state.nextBubble.powerUp,
+          x: CANNON_X + unit.x * muzzleOffset,
+          y: CANNON_Y + unit.y * muzzleOffset,
+          vx,
+          vy,
+          isMoving: true,
+        },
         shotsLeft: state.shotsLeft - 1,
       };
     }
@@ -125,6 +150,7 @@ function gameReducer(state: GameState, action: EngineAction): GameState {
       const newBubble: Bubble = {
         id: `b-${row}-${col}-${Date.now()}`,
         color: state.projectile.color,
+        kind: state.projectile.kind,
         row, col,
         x: pos.x, y: pos.y,
       };
@@ -134,16 +160,22 @@ function gameReducer(state: GameState, action: EngineAction): GameState {
       newGrid[row][col] = newBubble;
 
       // ── Match check: ≥3 connected same-colour → BLAST ──
-      const matched = findMatches(row, col, state.projectile.color, newGrid);
+      const powerUpResult = state.projectile.powerUp
+        ? resolvePowerUp(state.projectile.powerUp, row, col, newGrid)
+        : null;
+      const matched = powerUpResult
+        ? powerUpResult.clearedIds
+        : findMatches(row, col, state.projectile.color, newGrid);
       let scoreGain = 0;
       let newCombo = state.combo;
       let poppedIds: string[] = [];
       let fallingIds: string[] = [];
 
-      if (matched.length >= 3) {
+      if (matched.length >= 3 || powerUpResult) {
         newCombo += 1;
         const mult = 1 + newCombo * COMBO_MULTIPLIER;
         scoreGain += Math.round(matched.length * POINTS_PER_BUBBLE * mult);
+        if (powerUpResult) scoreGain += POWERUP_BONUS;
         poppedIds = [...matched];
 
         // Remove matched bubbles
@@ -175,14 +207,17 @@ function gameReducer(state: GameState, action: EngineAction): GameState {
       const starsEarned = isLevelComplete ? calcStars(newScore, state.level) : 0;
       const colorsInGrid = getColorsInGrid(newGrid);
       const config = getLevelConfig(state.level);
-      const nextColor = randomColor(colorsInGrid.length > 0 ? colorsInGrid : config.colors);
+      const nextBubble = randomPlayBubble(colorsInGrid.length > 0 ? colorsInGrid : config.colors, config.powerUpRate ?? 0);
+      const nextColor = nextBubble.color;
       const isGameOver = !isLevelComplete && state.shotsLeft === 0 && totalBubbles > 0;
+      const coinsEarned = isLevelComplete ? starsEarned * 25 + Math.floor(newScore / 1000) : state.coinsEarned;
 
       return {
         ...state,
         grid: newGrid,
         projectile: { ...moved, isMoving: false },
         nextColor,
+        nextBubble,
         score: newScore,
         highScore: Math.max(state.highScore, newScore),
         combo: newCombo,
@@ -191,6 +226,9 @@ function gameReducer(state: GameState, action: EngineAction): GameState {
         starsEarned,
         lastPoppedIds: poppedIds,
         lastFallingIds: fallingIds,
+        bubblesRemaining: totalBubbles,
+        coinsEarned,
+        freezeTicks: Math.max(0, state.freezeTicks - 1) + (powerUpResult?.freezeTicks ?? 0),
       };
     }
 

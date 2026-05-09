@@ -9,8 +9,9 @@ import {
   SCREEN_WIDTH,
   SCREEN_HEIGHT,
   COLOR_GRADIENTS,
+  POWER_UP_EMOJI,
 } from '../../constants/gameConfig';
-import { BubbleColor } from '../../types';
+import { BubbleColor, PowerUpKind } from '../../types';
 
 // Same face map as BubbleView
 const COLOR_FACE: Record<BubbleColor, string> = {
@@ -28,9 +29,12 @@ interface CannonProps {
   angle: number;
   currentColor: BubbleColor;
   nextColor: BubbleColor;
+  currentPowerUp?: PowerUpKind;
+  nextPowerUp?: PowerUpKind;
+  isAiming?: boolean;
 }
 
-export const Cannon: React.FC<CannonProps> = ({ angle, currentColor, nextColor }) => {
+export const Cannon: React.FC<CannonProps> = ({ angle, currentColor, nextColor, currentPowerUp, nextPowerUp, isAiming = false }) => {
   const barrelW  = BUBBLE_RADIUS * 0.65;
   const bubbleR  = BUBBLE_RADIUS - 2;
   const nextR    = BUBBLE_RADIUS * 0.55;
@@ -67,6 +71,17 @@ export const Cannon: React.FC<CannonProps> = ({ angle, currentColor, nextColor }
 
         {/* Rotating barrel */}
         <G origin={`${CANNON_X}, ${CANNON_Y}`} rotation={angle - 90}>
+          {isAiming && (
+            <Rect
+              x={CANNON_X - barrelW * 0.92}
+              y={CANNON_Y - CANNON_LENGTH - 5}
+              width={barrelW * 1.84}
+              height={CANNON_LENGTH + 10}
+              rx={barrelW}
+              fill="#4ECDC4"
+              opacity="0.18"
+            />
+          )}
           <Rect
             x={CANNON_X - barrelW / 2}
             y={CANNON_Y - CANNON_LENGTH}
@@ -82,6 +97,15 @@ export const Cannon: React.FC<CannonProps> = ({ angle, currentColor, nextColor }
             ry={barrelW / 4}
             fill="rgba(255,255,255,0.45)"
           />
+          {isAiming && (
+            <Circle
+              cx={CANNON_X}
+              cy={CANNON_Y - CANNON_LENGTH - 2}
+              r={barrelW * 0.92}
+              fill="#FFD700"
+              opacity="0.55"
+            />
+          )}
         </G>
 
         {/* Base */}
@@ -94,6 +118,15 @@ export const Cannon: React.FC<CannonProps> = ({ angle, currentColor, nextColor }
         />
 
         {/* Current bubble body */}
+        {isAiming && (
+          <Circle
+            cx={CANNON_X}
+            cy={CANNON_Y}
+            r={bubbleR + 8}
+            fill="#FF4757"
+            opacity="0.18"
+          />
+        )}
         <Circle cx={CANNON_X} cy={CANNON_Y} r={bubbleR} fill="url(#curr)" />
         <Circle
           cx={CANNON_X - bubbleR * 0.3}
@@ -135,7 +168,7 @@ export const Cannon: React.FC<CannonProps> = ({ angle, currentColor, nextColor }
           },
         ]}
       >
-        {COLOR_FACE[currentColor]}
+        {currentPowerUp ? POWER_UP_EMOJI[currentPowerUp] : COLOR_FACE[currentColor]}
       </Text>
 
       {/* ── Emoji overlay on next bubble ── */}
@@ -150,7 +183,7 @@ export const Cannon: React.FC<CannonProps> = ({ angle, currentColor, nextColor }
           },
         ]}
       >
-        {COLOR_FACE[nextColor]}
+        {nextPowerUp ? POWER_UP_EMOJI[nextPowerUp] : COLOR_FACE[nextColor]}
       </Text>
     </View>
   );

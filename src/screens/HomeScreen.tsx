@@ -173,14 +173,16 @@ interface HomeScreenProps {
   progress: PlayerProgress;
   onPlay: () => void;
   onSelectLevel: () => void;
+  onClaimDaily: () => { reward: number; claimed: boolean };
 }
 
-export const HomeScreen: React.FC<HomeScreenProps> = ({ progress, onPlay, onSelectLevel }) => {
+export const HomeScreen: React.FC<HomeScreenProps> = ({ progress, onPlay, onSelectLevel, onClaimDaily }) => {
   const titleScale  = useRef(new Animated.Value(0)).current;
   const titleOp     = useRef(new Animated.Value(0)).current;
   const btnScale    = useRef(new Animated.Value(0)).current;
   const pulse       = useRef(new Animated.Value(1)).current;
   const lvlBtnScale = useRef(new Animated.Value(0)).current;
+  const [dailyReward, setDailyReward] = useState<number | null>(null);
 
   useEffect(() => {
     Animated.sequence([
@@ -215,6 +217,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ progress, onPlay, onSele
       {/* Stars badge — above everything */}
       <TopStarsBadge total={progress.totalStars} max={MAX_STARS_TOTAL} />
 
+      <View style={styles.walletBadge}>
+        <Text style={styles.walletText}>🪙 {progress.coins.toLocaleString()}</Text>
+      </View>
+
       {/* Title */}
       <Animated.View
         style={[styles.titleBlock, { transform: [{ scale: titleScale }], opacity: titleOp }]}
@@ -230,6 +236,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ progress, onPlay, onSele
         <View style={styles.highScoreBlock}>
           <Text style={styles.highScoreLabel}>🏆 BEST SCORE</Text>
           <Text style={styles.highScoreValue}>{progress.highScore.toLocaleString()}</Text>
+        </View>
+      )}
+
+      {dailyReward !== null && (
+        <View style={styles.rewardToast}>
+          <Text style={styles.rewardText}>{dailyReward > 0 ? `Daily +${dailyReward} coins` : 'Daily reward claimed'}</Text>
         </View>
       )}
 
@@ -262,6 +274,18 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ progress, onPlay, onSele
         </TouchableOpacity>
       </Animated.View>
 
+      <TouchableOpacity
+        onPress={() => {
+          const result = onClaimDaily();
+          setDailyReward(result.reward);
+          setTimeout(() => setDailyReward(null), 1800);
+        }}
+        activeOpacity={0.85}
+        style={styles.dailyBtn}
+      >
+        <Text style={styles.dailyText}>🎁 Daily Reward  •  Streak {progress.dailyStreak}</Text>
+      </TouchableOpacity>
+
       {/* How to play */}
       <View style={styles.howTo}>
         <Text style={styles.howToTitle}>How to Play</Text>
@@ -290,6 +314,19 @@ const styles = StyleSheet.create({
   topBadgeCount: { color: '#FFD700', fontSize: 22, fontWeight: '900', marginLeft: 6 },
   topBadgeMax:   { color: 'rgba(255,255,255,0.5)', fontSize: 16, fontWeight: '600' },
   topBadgeLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: '700', letterSpacing: 1 },
+  walletBadge: {
+    position: 'absolute',
+    right: 18,
+    top: 48,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.28)',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderWidth: 1,
+    borderColor: 'rgba(255,215,0,0.3)',
+    zIndex: 10,
+  },
+  walletText: { color: '#FFD700', fontSize: 12, fontWeight: '900' },
 
   titleBlock: { alignItems: 'center', marginBottom: 18, zIndex: 5 },
   emoji:       { fontSize: 56, marginBottom: 4 },
@@ -306,6 +343,17 @@ const styles = StyleSheet.create({
   },
   highScoreLabel: { color: '#FFD700', fontSize: 11, fontWeight: '700', letterSpacing: 1 },
   highScoreValue: { color: '#fff', fontSize: 26, fontWeight: '900' },
+  rewardToast: {
+    backgroundColor: 'rgba(46,213,115,0.18)',
+    borderColor: 'rgba(46,213,115,0.45)',
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginBottom: 12,
+    zIndex: 6,
+  },
+  rewardText: { color: '#fff', fontSize: 13, fontWeight: '800' },
 
   playBtn: {
     borderRadius: 36, shadowColor: '#FFD700', shadowOffset: { width: 0, height: 8 },
@@ -317,7 +365,7 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0,0,0,0.3)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 4,
   },
 
-  lvlBtnWrap: { marginBottom: 22, zIndex: 5 },
+  lvlBtnWrap: { marginBottom: 12, zIndex: 5 },
   lvlBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 24, paddingVertical: 13,
@@ -326,6 +374,17 @@ const styles = StyleSheet.create({
   lvlBtnText:     { color: '#fff', fontSize: 17, fontWeight: '800' },
   lvlBtnStars:    { backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 2 },
   lvlBtnStarText: { color: '#FFD700', fontSize: 12, fontWeight: '700' },
+  dailyBtn: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 20,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+    marginBottom: 14,
+    zIndex: 5,
+  },
+  dailyText: { color: 'rgba(255,255,255,0.9)', fontSize: 13, fontWeight: '800' },
 
   howTo: {
     backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 18, padding: 16,

@@ -16,14 +16,21 @@ export default function App() {
   const [screen, setScreen]         = useState<Screen>('home');
   const [activeLevel, setActiveLevel] = useState(1);
   const fadeAnim = useRef(new Animated.Value(1)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
 
-  const { progress, saveLevel } = usePlayerProgress();
+  const { progress, saveLevel, claimDaily } = usePlayerProgress();
 
   const navigate = useCallback((to: Screen, level = 1) => {
-    Animated.timing(fadeAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
+      Animated.timing(scaleAnim, { toValue: 0.96, duration: 180, useNativeDriver: true }),
+    ]).start(() => {
       setActiveLevel(level);
       setScreen(to);
-      Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
+      Animated.parallel([
+        Animated.timing(fadeAnim, { toValue: 1, duration: 260, useNativeDriver: true }),
+        Animated.spring(scaleAnim, { toValue: 1, tension: 90, friction: 9, useNativeDriver: true }),
+      ]).start();
     });
   }, []);
 
@@ -32,12 +39,13 @@ export default function App() {
   }, [saveLevel]);
 
   const content = (
-    <Animated.View style={[styles.fill, { opacity: fadeAnim }]}>
+    <Animated.View style={[styles.fill, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
       {screen === 'home' && (
         <HomeScreen
           progress={progress}
           onPlay={() => navigate('game', progress.unlockedUpTo)}
           onSelectLevel={() => navigate('levelSelect')}
+          onClaimDaily={claimDaily}
         />
       )}
       {screen === 'levelSelect' && (

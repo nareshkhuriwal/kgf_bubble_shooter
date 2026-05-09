@@ -1,7 +1,8 @@
-import React, { useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, Animated, TouchableOpacity } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { SCREEN_WIDTH } from '../../constants/gameConfig';
+import { COLOR_GRADIENTS, GAME_HEADER_HEIGHT, POWER_UP_EMOJI } from '../../constants/gameConfig';
+import { PlayBubble } from '../../types';
 
 interface HUDProps {
   score: number;
@@ -9,46 +10,33 @@ interface HUDProps {
   level: number;
   shotsLeft: number;
   combo: number;
+  nextBubble: PlayBubble;
+  progress: number;
+  coinsEarned: number;
   onPause?: () => void;
+  onBack?: () => void;
 }
 
-const AnimatedScore: React.FC<{ value: number; style?: any }> = ({ value, style }) => {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-  const prevValue = useRef(value);
+const AnimatedScore: React.FC<{ value: number }> = ({ value }) => {
+  const scale = useRef(new Animated.Value(1)).current;
+  const previous = useRef(value);
 
   useEffect(() => {
-    if (value !== prevValue.current) {
-      prevValue.current = value;
+    if (previous.current !== value) {
+      previous.current = value;
       Animated.sequence([
-        Animated.timing(scaleAnim, {
-          toValue: 1.3,
-          duration: 100,
-          useNativeDriver: true,
-        }),
-        Animated.timing(scaleAnim, {
-          toValue: 1,
-          duration: 150,
-          useNativeDriver: true,
-        }),
+        Animated.timing(scale, { toValue: 1.12, duration: 90, useNativeDriver: true }),
+        Animated.spring(scale, { toValue: 1, tension: 180, friction: 8, useNativeDriver: true }),
       ]).start();
     }
-  }, [value]);
+  }, [scale, value]);
 
   return (
-    <Animated.Text style={[style, { transform: [{ scale: scaleAnim }] }]}>
+    <Animated.Text style={[styles.scoreText, { transform: [{ scale }] }]}>
       {value.toLocaleString()}
     </Animated.Text>
   );
 };
-
-const ShotBubble: React.FC<{ index: number; filled: boolean }> = ({ index, filled }) => (
-  <View
-    style={[
-      styles.shotBubble,
-      filled ? styles.shotFilled : styles.shotEmpty,
-    ]}
-  />
-);
 
 export const HUD: React.FC<HUDProps> = ({
   score,
@@ -56,156 +44,238 @@ export const HUD: React.FC<HUDProps> = ({
   level,
   shotsLeft,
   combo,
+  nextBubble,
+  progress,
+  coinsEarned,
   onPause,
+  onBack,
 }) => {
-  const shots = Array.from({ length: Math.min(shotsLeft, 10) }, (_, i) => i);
+  const [g1, g2] = COLOR_GRADIENTS[nextBubble.color];
+  const completion = Math.max(0, Math.min(1, progress));
+  const comboLabel = combo >= 5 ? 'MEGA' : combo >= 3 ? 'SUPER' : combo >= 2 ? `COMBO x${combo}` : 'READY';
 
   return (
-    <LinearGradient
-      colors={['rgba(0,0,0,0.75)', 'rgba(0,0,0,0)']}
-      style={styles.container}
-    >
-      <View style={styles.row}>
-        {/* Level */}
-        <View style={styles.levelBadge}>
-          <Text style={styles.levelLabel}>LEVEL</Text>
-          <Text style={styles.levelValue}>{level}</Text>
+    <View style={styles.shell} pointerEvents="box-none">
+      <LinearGradient
+        colors={['rgba(8,10,31,0.98)', 'rgba(15,20,58,0.94)', 'rgba(15,15,46,0.72)']}
+        style={styles.header}
+      >
+        <View style={styles.topRow}>
+          <TouchableOpacity onPress={onBack} activeOpacity={0.82} style={styles.iconButton}>
+            <Text style={styles.iconText}>‹</Text>
+          </TouchableOpacity>
+
+          <View style={styles.scoreWrap}>
+            <AnimatedScore value={score} />
+            <View style={styles.bestPill}>
+              <Text style={styles.bestText}>BEST {highScore.toLocaleString()}</Text>
+            </View>
+          </View>
+
+          <TouchableOpacity onPress={onPause} activeOpacity={0.82} style={[styles.iconButton, styles.pauseButton]}>
+            <Text style={styles.pauseText}>Ⅱ</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Score */}
-        <View style={styles.scoreBlock}>
-          <AnimatedScore value={score} style={styles.scoreText} />
-          <Text style={styles.highScoreText}>BEST {highScore.toLocaleString()}</Text>
+        <View style={styles.infoRow}>
+          <View style={styles.levelCard}>
+            <Text style={styles.statLabel}>LEVEL</Text>
+            <Text style={styles.levelText}>{level}</Text>
+          </View>
+
+          <View style={styles.centerPanel}>
+            <View style={styles.metaRow}>
+              <Text style={styles.metaText}>SHOTS {shotsLeft}</Text>
+              <Text style={[styles.metaText, combo >= 2 && styles.comboActive]}>{comboLabel}</Text>
+              {coinsEarned > 0 && <Text style={styles.coinText}>COINS {coinsEarned}</Text>}
+            </View>
+            <View style={styles.progressTrack}>
+              <LinearGradient
+                colors={['#4ECDC4', '#8BE9FD', '#FFD700']}
+                style={[styles.progressFill, { width: `${completion * 100}%` }]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              />
+            </View>
+          </View>
+
+          <View style={styles.nextCard}>
+            <LinearGradient colors={[g1, g2]} style={styles.nextBubble}>
+              <Text style={styles.nextText}>{nextBubble.powerUp ? POWER_UP_EMOJI[nextBubble.powerUp] : '●'}</Text>
+            </LinearGradient>
+            <Text style={styles.nextLabel}>NEXT</Text>
+          </View>
         </View>
-
-        {/* Pause */}
-        <TouchableOpacity style={styles.pauseBtn} onPress={onPause}>
-          <Text style={styles.pauseIcon}>⏸</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Combo */}
-      {combo >= 2 && (
-        <View style={styles.comboRow}>
-          <Text style={styles.comboText}>🔥 x{combo} COMBO!</Text>
-        </View>
-      )}
-
-      {/* Shots left */}
-      <View style={styles.shotsRow}>
-        {shots.map(i => (
-          <ShotBubble key={i} index={i} filled={true} />
-        ))}
-        {shotsLeft > 10 && (
-          <Text style={styles.moreShotsText}>+{shotsLeft - 10}</Text>
-        )}
-      </View>
-    </LinearGradient>
+      </LinearGradient>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  shell: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    paddingTop: 50,
-    paddingHorizontal: 16,
-    paddingBottom: 12,
+    height: GAME_HEADER_HEIGHT,
+    zIndex: 20,
   },
-  row: {
+  header: {
+    flex: 1,
+    paddingTop: 34,
+    paddingHorizontal: 14,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderColor: 'rgba(78,205,196,0.26)',
+    shadowColor: '#4ECDC4',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 18,
+  },
+  topRow: {
+    minHeight: 42,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  levelBadge: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+  iconButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: 'center',
-    minWidth: 60,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
   },
-  levelLabel: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 10,
+  iconText: {
+    color: '#fff',
+    fontSize: 34,
+    lineHeight: 36,
     fontWeight: '700',
-    letterSpacing: 1,
+    marginTop: -2,
   },
-  levelValue: {
-    color: '#FFD700',
-    fontSize: 24,
+  pauseButton: {
+    backgroundColor: 'rgba(255,107,53,0.95)',
+    borderColor: 'rgba(255,215,0,0.42)',
+  },
+  pauseText: {
+    color: '#fff',
+    fontSize: 22,
     fontWeight: '900',
   },
-  scoreBlock: {
+  scoreWrap: {
     alignItems: 'center',
+    flex: 1,
   },
   scoreText: {
-    color: '#ffffff',
-    fontSize: 30,
+    color: '#fff',
+    fontSize: 34,
+    lineHeight: 38,
     fontWeight: '900',
-    textShadowColor: 'rgba(0,0,0,0.5)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
-  },
-  highScoreText: {
-    color: '#FFD700',
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  pauseBtn: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 20,
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pauseIcon: {
-    fontSize: 18,
-  },
-  comboRow: {
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  comboText: {
-    color: '#FFD700',
-    fontSize: 16,
-    fontWeight: '900',
-    textShadowColor: '#FF6B35',
+    textShadowColor: 'rgba(78,205,196,0.6)',
     textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 8,
+    textShadowRadius: 10,
   },
-  shotsRow: {
+  bestPill: {
+    marginTop: -1,
+    paddingHorizontal: 12,
+    paddingVertical: 2,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,215,0,0.14)',
+  },
+  bestText: {
+    color: '#FFD700',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+  infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 10,
     marginTop: 8,
-    gap: 4,
   },
-  shotBubble: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  shotFilled: {
-    backgroundColor: '#4ECDC4',
-    shadowColor: '#4ECDC4',
-    shadowOffset: { width: 0, height: 0 },
-    shadowRadius: 4,
-    shadowOpacity: 0.8,
-  },
-  shotEmpty: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
+  levelCard: {
+    minWidth: 62,
+    borderRadius: 16,
+    paddingVertical: 7,
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.12)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
+    borderColor: 'rgba(255,255,255,0.16)',
   },
-  moreShotsText: {
-    color: 'white',
-    fontSize: 11,
-    fontWeight: '700',
-    marginLeft: 4,
+  statLabel: {
+    color: 'rgba(255,255,255,0.68)',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1.4,
+  },
+  levelText: {
+    color: '#FFD700',
+    fontSize: 24,
+    lineHeight: 27,
+    fontWeight: '900',
+  },
+  centerPanel: {
+    flex: 1,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 6,
+    marginBottom: 6,
+  },
+  metaText: {
+    color: 'rgba(255,255,255,0.82)',
+    fontSize: 10,
+    fontWeight: '900',
+  },
+  comboActive: {
+    color: '#FFD700',
+  },
+  coinText: {
+    color: '#FFD700',
+    fontSize: 10,
+    fontWeight: '900',
+  },
+  progressTrack: {
+    height: 9,
+    borderRadius: 9,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 9,
+  },
+  nextCard: {
+    width: 50,
+    alignItems: 'center',
+  },
+  nextBubble: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.55)',
+  },
+  nextText: {
+    color: '#fff',
+    fontSize: 17,
+    lineHeight: 19,
+    fontWeight: '900',
+  },
+  nextLabel: {
+    color: 'rgba(255,255,255,0.62)',
+    fontSize: 9,
+    fontWeight: '900',
+    marginTop: 2,
+    letterSpacing: 0.9,
   },
 });

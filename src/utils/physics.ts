@@ -26,10 +26,18 @@ export function aimAngle(cx: number, cy: number, tx: number, ty: number): number
 }
 
 export function angleToVector(deg: number): { vx: number; vy: number } {
-  const rad = ((deg - 90) * Math.PI) / 180;
+  const rad = (deg * Math.PI) / 180;
   return {
-    vx: Math.cos(rad) * PROJECTILE_SPEED,
-    vy: Math.sin(rad) * PROJECTILE_SPEED,
+    vx: -Math.cos(rad) * PROJECTILE_SPEED,
+    vy: -Math.sin(rad) * PROJECTILE_SPEED,
+  };
+}
+
+export function angleToUnitVector(deg: number): { x: number; y: number } {
+  const rad = (deg * Math.PI) / 180;
+  return {
+    x: -Math.cos(rad),
+    y: -Math.sin(rad),
   };
 }
 

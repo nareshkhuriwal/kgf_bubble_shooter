@@ -1,4 +1,4 @@
-package com.khuriwalgroup.bubbleshooter
+package com.khuriwalgroup
 
 import android.os.Build
 import android.os.Bundle

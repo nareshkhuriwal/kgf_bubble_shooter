@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import Svg, { Circle } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient, Line, Stop } from 'react-native-svg';
 import {
   CANNON_X,
   CANNON_Y,
@@ -9,6 +9,7 @@ import {
   GRID_OFFSET_Y,
   CANNON_LENGTH,
 } from '../../constants/gameConfig';
+import { angleToUnitVector } from '../../utils/physics';
 
 interface AimLineProps {
   angle: number;
@@ -16,13 +17,13 @@ interface AimLineProps {
 }
 
 function computeDots(angle: number, count: number): { x: number; y: number }[] {
-  const rad = ((angle - 90) * Math.PI) / 180;
+  const vector = angleToUnitVector(angle);
   const dots: { x: number; y: number }[] = [];
 
   let x = CANNON_X;
   let y = CANNON_Y - CANNON_LENGTH - 5;
-  let dvx = Math.cos(rad);
-  let dvy = Math.sin(rad);
+  let dvx = vector.x;
+  let dvy = vector.y;
   const step = 18;
 
   for (let i = 0; i < count; i++) {
@@ -40,19 +41,48 @@ function computeDots(angle: number, count: number): { x: number; y: number }[] {
 
 export const AimLine: React.FC<AimLineProps> = ({ angle, visible }) => {
   if (!visible) return null;
-  const dots = computeDots(angle, 20);
+  const dots = computeDots(angle, 24);
+  const start = { x: CANNON_X, y: CANNON_Y - CANNON_LENGTH - 6 };
+  const end = dots[dots.length - 1] ?? start;
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       <Svg width={SCREEN_WIDTH} height={SCREEN_HEIGHT} style={StyleSheet.absoluteFill}>
+        <Defs>
+          <LinearGradient id="aimGlow" x1="0" y1="0" x2="1" y2="1">
+            <Stop offset="0%" stopColor="#ffffff" stopOpacity="0.96" />
+            <Stop offset="50%" stopColor="#4ECDC4" stopOpacity="0.92" />
+            <Stop offset="100%" stopColor="#FFD700" stopOpacity="0.8" />
+          </LinearGradient>
+        </Defs>
+        <Line
+          x1={start.x}
+          y1={start.y}
+          x2={end.x}
+          y2={end.y}
+          stroke="#4ECDC4"
+          strokeWidth="10"
+          strokeLinecap="round"
+          opacity="0.12"
+        />
+        <Line
+          x1={start.x}
+          y1={start.y}
+          x2={end.x}
+          y2={end.y}
+          stroke="url(#aimGlow)"
+          strokeWidth="3"
+          strokeLinecap="round"
+          opacity="0.9"
+        />
         {dots.map((d, i) => (
           <Circle
             key={i}
             cx={d.x}
             cy={d.y}
-            r={i % 2 === 0 ? 3.5 : 2.5}
-            fill="white"
-            opacity={Math.max(0.15, 0.8 - i * 0.035)}
+            r={Math.max(2.2, 5 - i * 0.08)}
+            fill={i % 3 === 0 ? '#FFD700' : '#ffffff'}
+            opacity={Math.max(0.18, 0.92 - i * 0.035)}
           />
         ))}
       </Svg>

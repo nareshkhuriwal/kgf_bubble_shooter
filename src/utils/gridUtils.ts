@@ -1,4 +1,4 @@
-import { Bubble, BubbleColor } from '../types';
+import { Bubble, BubbleColor, BubbleKind, LevelConfig, PlayBubble } from '../types';
 import {
   BUBBLE_RADIUS,
   BUBBLE_DIAMETER,
@@ -81,7 +81,7 @@ export function findMatches(
     const key = `${cur.row}-${cur.col}`;
     if (visited.has(key)) continue;
     const cell = grid[cur.row]?.[cur.col];
-    if (!cell || cell.color !== color) continue;
+    if (!cell || cell.color !== color || cell.kind === 'stone' || cell.kind === 'locked' || cell.kind === 'blocker') continue;
     visited.add(key);
     ids.push(cell.id);
     for (const n of getNeighbors(cur.row, cur.col, grid)) {
@@ -132,10 +132,20 @@ export function createEmptyGrid(rows: number, cols: number): (Bubble | null)[][]
   return Array.from({ length: rows }, () => Array(cols).fill(null));
 }
 
+function kindFromPattern(token?: string): BubbleKind {
+  if (token === 'S') return 'stone';
+  if (token === 'L') return 'locked';
+  if (token === 'I') return 'ice';
+  if (token === 'H') return 'hidden';
+  if (token === 'B') return 'blocker';
+  return 'normal';
+}
+
 export function generateInitialGrid(
   rows: number,
   cols: number,
-  colors: BubbleColor[]
+  colors: BubbleColor[],
+  config?: LevelConfig
 ): (Bubble | null)[][] {
   // Extra empty rows below for the shooter to work in
   const grid = createEmptyGrid(rows + 5, cols);
@@ -143,10 +153,17 @@ export function generateInitialGrid(
     const colCount = r % 2 === 1 ? cols - 1 : cols;
     for (let c = 0; c < colCount; c++) {
       const color = colors[Math.floor(Math.random() * colors.length)];
+      const patternToken = config?.bubblePattern?.[r]?.[c];
+      const kind = patternToken && patternToken !== '.'
+        ? kindFromPattern(patternToken)
+        : Math.random() < (config?.obstacleRate ?? 0) && r > 1
+          ? (Math.random() > 0.5 ? 'stone' : 'ice')
+          : 'normal';
       const pos = getBubblePosition(r, c);
       grid[r][c] = {
         id: `${r}-${c}-${Date.now()}-${Math.random()}`,
         color,
+        kind,
         row: r,
         col: c,
         x: pos.x,
@@ -159,6 +176,19 @@ export function generateInitialGrid(
 
 export function randomColor(colors: BubbleColor[]): BubbleColor {
   return colors[Math.floor(Math.random() * colors.length)];
+}
+
+export function randomPlayBubble(colors: BubbleColor[], powerUpRate = 0): PlayBubble {
+  const color = randomColor(colors);
+  if (Math.random() < powerUpRate) {
+    const powerUps = ['bomb', 'rainbow', 'fire', 'lightning', 'freeze', 'rocket'] as const;
+    return {
+      color,
+      kind: 'normal',
+      powerUp: powerUps[Math.floor(Math.random() * powerUps.length)],
+    };
+  }
+  return { color, kind: 'normal' };
 }
 
 export function getColorsInGrid(grid: (Bubble | null)[][]): BubbleColor[] {

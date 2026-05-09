@@ -1,11 +1,13 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text } from 'react-native';
 import Svg, { Circle, RadialGradient, Defs, Stop, Ellipse } from 'react-native-svg';
-import { BubbleColor } from '../../types';
-import { BUBBLE_RADIUS, COLOR_GRADIENTS, FACE_COLORS } from '../../constants/gameConfig';
+import { BubbleColor, BubbleKind, PowerUpKind } from '../../types';
+import { BUBBLE_RADIUS, COLOR_GRADIENTS, FACE_COLORS, POWER_UP_EMOJI } from '../../constants/gameConfig';
 
 interface BubbleViewProps {
   color: BubbleColor;
+  kind?: BubbleKind;
+  powerUp?: PowerUpKind;
   x: number;
   y: number;
   size?: number;
@@ -27,6 +29,8 @@ const COLOR_FACE: Record<BubbleColor, string> = {
 
 export const BubbleView: React.FC<BubbleViewProps> = ({
   color,
+  kind = 'normal',
+  powerUp,
   x,
   y,
   size = BUBBLE_RADIUS,
@@ -62,8 +66,9 @@ export const BubbleView: React.FC<BubbleViewProps> = ({
 
   const gradId = `grad-${color}`;
   const [g1, g2] = COLOR_GRADIENTS[color];
-  const face = COLOR_FACE[color];
+  const face = powerUp ? POWER_UP_EMOJI[powerUp] : kind === 'stone' ? '⬢' : kind === 'locked' ? '🔒' : kind === 'ice' ? '❄️' : COLOR_FACE[color];
   const fontSize = size * 0.74;
+  const isObstacle = kind !== 'normal';
 
   return (
     <Animated.View
@@ -94,20 +99,21 @@ export const BubbleView: React.FC<BubbleViewProps> = ({
           fill="rgba(0,0,0,0.18)"
         />
         {/* Bubble body */}
-        <Circle cx={size} cy={size} r={size - 2} fill={`url(#${gradId})`} />
+        <Circle cx={size} cy={size} r={size - 2} fill={kind === 'stone' ? '#5d6470' : `url(#${gradId})`} />
         {/* Shine */}
         <Circle cx={size * 0.62} cy={size * 0.52} r={size * 0.21} fill="rgba(255,255,255,0.55)" />
         {/* Outline */}
         <Circle
           cx={size} cy={size} r={size - 2}
-          fill="none" stroke={FACE_COLORS[color]}
-          strokeWidth="1.5" strokeOpacity="0.35"
+          fill={kind === 'ice' ? 'rgba(177,232,255,0.22)' : 'none'}
+          stroke={powerUp ? '#ffffff' : isObstacle ? '#D8DEE9' : FACE_COLORS[color]}
+          strokeWidth={powerUp ? '3' : '1.5'} strokeOpacity={powerUp ? '0.85' : '0.35'}
         />
       </Svg>
 
       {/* Emoji face — always visible */}
       <Text
-        style={[styles.face, { fontSize, top: size - fontSize * 0.62, width: size * 2 }]}
+        style={[styles.face, { fontSize: powerUp ? fontSize * 0.92 : fontSize, top: size - fontSize * 0.62, width: size * 2 }]}
       >
         {face}
       </Text>

@@ -1,25 +1,36 @@
 {
   "expo": {
-    "name": "Bubble Shooter",
-    "slug": "bubble-shooter",
+    "name": "KGF Orbito",
+    "slug": "kgf-orbito",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#080A1F"
+    },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.khuriwalgroup.bubbleshooter",
+      "bundleIdentifier": "com.khuriwalgroup",
       "infoPlist": {
         "UIStatusBarStyle": "UIStatusBarStyleLightContent"
       }
     },
     "android": {
-      "package": "com.khuriwalgroup.bubbleshooter",
+      "package": "com.khuriwalgroup",
       "statusBar": {
         "barStyle": "light-content",
         "backgroundColor": "#0f0f2e"
       },
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#080A1F"
+      },
       "permissions": [
-        "android.permission.RECORD_AUDIO",
+        "android.permission.INTERNET",
+        "android.permission.VIBRATE",
         "android.permission.MODIFY_AUDIO_SETTINGS"
       ]
     },

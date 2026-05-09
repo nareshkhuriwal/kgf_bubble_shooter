@@ -1,0 +1,16 @@
+node_modules
+
+# Build output
+android/app/build/
+android/build/
+.expo/
+dist/
+
+# Android signing secrets
+android/app/*.jks
+android/app/*.keystore
+*.keystore
+
+# Local machine config
+local.properties
+*.log

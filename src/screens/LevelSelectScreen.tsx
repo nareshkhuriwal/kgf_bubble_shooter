@@ -9,7 +9,8 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { PlayerProgress } from '../types';
-import { TOTAL_LEVELS, MAX_STARS_TOTAL, LEVELS, SCREEN_WIDTH } from '../constants/gameConfig';
+import { MAX_STARS_TOTAL, SCREEN_WIDTH } from '../constants/gameConfig';
+import { WORLDS } from '../data/levels';
 
 interface LevelSelectScreenProps {
   progress: PlayerProgress;
@@ -226,24 +227,38 @@ export const LevelSelectScreen: React.FC<LevelSelectScreenProps> = ({
         {/* Stars banner */}
         <StarsBanner total={progress.totalStars} max={MAX_STARS_TOTAL} />
 
-        {/* Level grid */}
-        <View style={styles.grid}>
-          {Array.from({ length: TOTAL_LEVELS }, (_, i) => {
-            const level = i + 1;
-            const unlocked = level <= progress.unlockedUpTo;
-            const stars = progress.levelStars[i] ?? 0;
-            return (
-              <LevelCard
-                key={level}
-                level={level}
-                stars={stars}
-                unlocked={unlocked}
-                onPress={() => onSelectLevel(level)}
-                index={i}
-              />
-            );
-          })}
-        </View>
+        {WORLDS.map(world => {
+          const [from, to] = world.levelRange;
+          const worldStars = progress.levelStars.slice(from - 1, to).reduce((a, b) => a + b, 0);
+          return (
+            <View key={world.id} style={styles.worldBlock}>
+              <LinearGradient colors={world.colors} style={styles.worldHeader} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+                <View>
+                  <Text style={styles.worldTitle}>{world.name}</Text>
+                  <Text style={styles.worldLabel}>{world.label} • Levels {from}-{to}</Text>
+                </View>
+                <Text style={styles.worldStars}>⭐ {worldStars}/24</Text>
+              </LinearGradient>
+              <View style={styles.grid}>
+                {Array.from({ length: to - from + 1 }, (_, offset) => {
+                  const level = from + offset;
+                  const unlocked = level <= progress.unlockedUpTo;
+                  const stars = progress.levelStars[level - 1] ?? 0;
+                  return (
+                    <LevelCard
+                      key={level}
+                      level={level}
+                      stars={stars}
+                      unlocked={unlocked}
+                      onPress={() => onSelectLevel(level)}
+                      index={level - 1}
+                    />
+                  );
+                })}
+              </View>
+            </View>
+          );
+        })}
 
         <View style={{ height: 20 }} />
       </ScrollView>
@@ -363,6 +378,36 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 12,
     justifyContent: 'space-between',
+  },
+  worldBlock: {
+    marginBottom: 18,
+  },
+  worldHeader: {
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  worldTitle: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  worldLabel: {
+    color: 'rgba(255,255,255,0.72)',
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  worldStars: {
+    color: '#FFD700',
+    fontSize: 13,
+    fontWeight: '900',
   },
   cardWrapper: {
     width: CARD_SIZE,

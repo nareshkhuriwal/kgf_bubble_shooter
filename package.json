@@ -1,12 +1,17 @@
 {
-  "name": "BubbleShooter",
+  "name": "kgf-orbito",
   "version": "1.0.0",
   "private": true,
   "scripts": {
     "android": "react-native run-android",
     "ios": "react-native run-ios",
     "start": "react-native start",
-    "test": "jest",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run typecheck",
+    "android:apk:test": "bash scripts/build-android-test-apk.sh",
+    "android:bundle": "bash scripts/test-and-build-android.sh",
+    "android:bundle:eas": "eas build --platform android --profile production",
+    "android:submit:eas": "eas submit --platform android --profile production",
     "lint": "eslint .",
     "web": "expo start --web"
   },

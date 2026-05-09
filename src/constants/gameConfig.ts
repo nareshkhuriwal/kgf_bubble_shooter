@@ -1,5 +1,6 @@
 import { Dimensions, Platform } from 'react-native';
-import { BubbleColor, LevelConfig } from '../types';
+import { BubbleColor, LevelConfig, PowerUpKind } from '../types';
+import { LEVELS as RICH_LEVELS } from '../data/levels';
 
 const screen = Dimensions.get('window');
 
@@ -15,12 +16,13 @@ export const SCREEN_HEIGHT = Platform.OS === 'web'
 
 export const COLS = 8;
 export const ROWS = 10;
+export const GAME_HEADER_HEIGHT = Platform.OS === 'web' ? 132 : Math.max(126, Math.min(152, Math.floor(SCREEN_HEIGHT * 0.17)));
 
 export const BUBBLE_RADIUS = Math.floor((SCREEN_WIDTH - 16) / (COLS * 2));
 export const BUBBLE_DIAMETER = BUBBLE_RADIUS * 2;
 
 export const GRID_OFFSET_X = (SCREEN_WIDTH - COLS * BUBBLE_DIAMETER) / 2;
-export const GRID_OFFSET_Y = 80;
+export const GRID_OFFSET_Y = GAME_HEADER_HEIGHT + 18;
 
 export const CANNON_X = SCREEN_WIDTH / 2;
 export const CANNON_Y = SCREEN_HEIGHT - 110;
@@ -63,21 +65,9 @@ export const FACE_COLORS: Record<BubbleColor, string> = {
   cyan: '#148F77',
 };
 
-// 10 levels — progressively harder
-export const LEVELS: LevelConfig[] = [
-  { level: 1,  rows: 4, cols: COLS, colors: ['red','blue','green','yellow'],                               shotsAllowed: 30, targetScore: 300  },
-  { level: 2,  rows: 5, cols: COLS, colors: ['red','blue','green','yellow'],                               shotsAllowed: 28, targetScore: 600  },
-  { level: 3,  rows: 5, cols: COLS, colors: ['red','blue','green','yellow','purple'],                      shotsAllowed: 28, targetScore: 900  },
-  { level: 4,  rows: 6, cols: COLS, colors: ['red','blue','green','yellow','purple'],                      shotsAllowed: 32, targetScore: 1200 },
-  { level: 5,  rows: 6, cols: COLS, colors: ['red','blue','green','yellow','purple','orange'],             shotsAllowed: 32, targetScore: 1600 },
-  { level: 6,  rows: 7, cols: COLS, colors: ['red','blue','green','yellow','purple','orange'],             shotsAllowed: 35, targetScore: 2000 },
-  { level: 7,  rows: 7, cols: COLS, colors: ['red','blue','green','yellow','purple','orange','pink'],      shotsAllowed: 35, targetScore: 2500 },
-  { level: 8,  rows: 8, cols: COLS, colors: ['red','blue','green','yellow','purple','orange','pink'],      shotsAllowed: 38, targetScore: 3000 },
-  { level: 9,  rows: 8, cols: COLS, colors: ['red','blue','green','yellow','purple','orange','pink','cyan'], shotsAllowed: 38, targetScore: 3600 },
-  { level: 10, rows: 9, cols: COLS, colors: ['red','blue','green','yellow','purple','orange','pink','cyan'], shotsAllowed: 40, targetScore: 4500 },
-];
+export const LEVELS: LevelConfig[] = RICH_LEVELS;
 
-export const TOTAL_LEVELS = LEVELS.length; // 10
+export const TOTAL_LEVELS = LEVELS.length;
 
 // Stars per level: 1 = cleared, 2 = cleared with score ≥ target, 3 = cleared with score ≥ 1.5×target
 export function calcStars(score: number, levelNum: number): number {
@@ -88,12 +78,25 @@ export function calcStars(score: number, levelNum: number): number {
   return 1; // cleared but below target
 }
 
-export const MAX_STARS_TOTAL = TOTAL_LEVELS * 3; // 30
+export const MAX_STARS_TOTAL = TOTAL_LEVELS * 3;
 
 export const POINTS_PER_BUBBLE = 50;
 export const COMBO_MULTIPLIER = 0.5;
 export const FALL_BONUS = 30;
 export const SHOT_BONUS = 20;
+export const POWERUP_BONUS = 125;
+export const COINS_PER_STAR = 25;
 export const MIN_MATCH = 3;
 export const ANGLE_MIN = 15;
 export const ANGLE_MAX = 165;
+
+export const POWER_UPS: PowerUpKind[] = ['bomb', 'rainbow', 'fire', 'lightning', 'freeze', 'rocket'];
+
+export const POWER_UP_EMOJI: Record<PowerUpKind, string> = {
+  bomb: '💣',
+  rainbow: '🌈',
+  fire: '🔥',
+  lightning: '⚡',
+  freeze: '❄️',
+  rocket: '🚀',
+};
