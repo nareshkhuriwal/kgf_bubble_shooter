@@ -1,6 +1,6 @@
-# KGF Orbito
+# Bubble Kingdom
 
-KGF Orbito is a React Native/Expo casual bubble shooter prepared for Android release as `com.khuriwalgroup`.
+Bubble Kingdom is a React Native/Expo casual bubble shooter prepared for Android release as `com.khuriwalgroup`.
 
 ## What Changed
 
@@ -47,7 +47,7 @@ com.khuriwalgroup
 The Play Store app display name is:
 
 ```text
-KGF Orbito
+Bubble Kingdom
 ```
 
 Before building locally, create the upload keystore and add the local Gradle signing properties described in [android/PLAYSTORE_SIGNING.md](android/PLAYSTORE_SIGNING.md).
@@ -79,7 +79,7 @@ npm run android:submit:eas
 ## Google Play Deployment Steps
 
 1. Open Google Play Console and create a new app.
-2. Set app name to `KGF Orbito`.
+2. Set app name to `Bubble Kingdom`.
 3. Choose app type `Game`.
 4. Choose free or paid.
 5. Complete App content: privacy policy, ads declaration, data safety, content rating, target audience, and app access.

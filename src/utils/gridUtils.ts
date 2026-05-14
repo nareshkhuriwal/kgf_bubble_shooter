@@ -81,7 +81,7 @@ export function findMatches(
     const key = `${cur.row}-${cur.col}`;
     if (visited.has(key)) continue;
     const cell = grid[cur.row]?.[cur.col];
-    if (!cell || cell.color !== color || cell.kind === 'stone' || cell.kind === 'locked' || cell.kind === 'blocker') continue;
+    if (!cell || cell.color !== color || cell.kind === 'stone' || cell.kind === 'locked' || cell.kind === 'blocker' || cell.kind === 'steel') continue;
     visited.add(key);
     ids.push(cell.id);
     for (const n of getNeighbors(cur.row, cur.col, grid)) {
@@ -138,6 +138,7 @@ function kindFromPattern(token?: string): BubbleKind {
   if (token === 'I') return 'ice';
   if (token === 'H') return 'hidden';
   if (token === 'B') return 'blocker';
+  if (token === 'T') return 'steel';
   return 'normal';
 }
 
@@ -157,7 +158,7 @@ export function generateInitialGrid(
       const kind = patternToken && patternToken !== '.'
         ? kindFromPattern(patternToken)
         : Math.random() < (config?.obstacleRate ?? 0) && r > 1
-          ? (Math.random() > 0.5 ? 'stone' : 'ice')
+          ? (() => { const roll = Math.random(); return roll < 0.35 ? 'stone' : roll < 0.65 ? 'ice' : 'steel'; })()
           : 'normal';
       const pos = getBubblePosition(r, c);
       grid[r][c] = {
@@ -181,7 +182,7 @@ export function randomColor(colors: BubbleColor[]): BubbleColor {
 export function randomPlayBubble(colors: BubbleColor[], powerUpRate = 0): PlayBubble {
   const color = randomColor(colors);
   if (Math.random() < powerUpRate) {
-    const powerUps = ['bomb', 'rainbow', 'fire', 'lightning', 'freeze', 'rocket'] as const;
+    const powerUps = ['bomb', 'rainbow', 'fire', 'lightning', 'freeze', 'rocket', 'meteor', 'star'] as const;
     return {
       color,
       kind: 'normal',

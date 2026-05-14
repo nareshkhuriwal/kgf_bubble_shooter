@@ -1,15 +1,15 @@
 {
   "expo": {
-    "name": "KGF Orbito",
-    "slug": "kgf-orbito",
+    "name": "Bubble Kingdom",
+    "slug": "bubble-kingdom",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/bubble-kingdom-icon-master.png",
     "userInterfaceStyle": "automatic",
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/kgf-orbito-splash-master.png",
       "resizeMode": "cover",
-      "backgroundColor": "#080A1F"
+      "backgroundColor": "#0d0514"
     },
     "ios": {
       "supportsTablet": false,
@@ -25,8 +25,8 @@
         "backgroundColor": "#0f0f2e"
       },
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#080A1F"
+        "foregroundImage": "./assets/bubble-kingdom-icon-master.png",
+        "backgroundColor": "#0d0514"
       },
       "permissions": [
         "android.permission.INTERNET",

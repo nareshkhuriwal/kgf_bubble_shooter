@@ -62,8 +62,49 @@ export function resolvePowerUp(
     getNeighbors(row, col, grid).forEach(n => collectCell(grid, n.row, n.col, ids));
   }
 
+  // ☄️ Meteor — entire row + entire column (cross blast)
+  if (kind === 'meteor') {
+    const cols = grid[row]?.length ?? 0;
+    for (let c = 0; c < cols; c++) collectCell(grid, row, c, ids);
+    for (let r = 0; r < grid.length; r++) collectCell(grid, r, col, ids);
+    // Also clear adjacent rows for the devastating effect
+    if (row > 0) {
+      const aboveCols = grid[row - 1]?.length ?? 0;
+      for (let c = 0; c < aboveCols; c++) collectCell(grid, row - 1, c, ids);
+    }
+    if (row + 1 < grid.length) {
+      const belowCols = grid[row + 1]?.length ?? 0;
+      for (let c = 0; c < belowCols; c++) collectCell(grid, row + 1, c, ids);
+    }
+  }
+
+  // 💫 Star — all bubbles within 3 hex-cell radius (massive area blast)
+  if (kind === 'star') {
+    for (let r = 0; r < grid.length; r++) {
+      for (let c = 0; c < (grid[r]?.length ?? 0); c++) {
+        const dr = Math.abs(r - row);
+        const dc = Math.abs(c - col);
+        // Approximate hex distance ≤ 3
+        if (dr <= 3 && dc <= 3 && dr + dc <= 5) {
+          collectCell(grid, r, c, ids);
+        }
+      }
+    }
+  }
+
+  // Filter out indestructible steel bubbles (only power-ups clear them, not matches)
+  // Steel is already clearable by ALL power-ups — filter stone/blocker only
+  const result = Array.from(ids).filter(id => {
+    for (const rowArr of grid) {
+      for (const b of rowArr) {
+        if (b?.id === id && (b.kind === 'stone' || b.kind === 'blocker')) return false;
+      }
+    }
+    return true;
+  });
+
   return {
-    clearedIds: Array.from(ids),
+    clearedIds: result,
     freezeTicks: kind === 'freeze' ? 2 : 0,
   };
 }

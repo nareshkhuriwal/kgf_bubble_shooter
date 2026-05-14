@@ -1,4 +1,4 @@
-# KGF Orbito Android Release Signing
+# Bubble Kingdom Android Release Signing
 
 For Google Play, build and upload an Android App Bundle (`.aab`) signed with a private upload key.
 

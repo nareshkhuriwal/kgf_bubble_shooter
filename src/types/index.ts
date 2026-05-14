@@ -8,7 +8,7 @@ export type BubbleColor =
   | 'pink'
   | 'cyan';
 
-export type BubbleKind = 'normal' | 'stone' | 'locked' | 'ice' | 'hidden' | 'blocker';
+export type BubbleKind = 'normal' | 'stone' | 'locked' | 'ice' | 'hidden' | 'blocker' | 'steel';
 
 export type PowerUpKind =
   | 'bomb'
@@ -16,7 +16,9 @@ export type PowerUpKind =
   | 'fire'
   | 'lightning'
   | 'freeze'
-  | 'rocket';
+  | 'rocket'
+  | 'meteor'
+  | 'star';
 
 export type GameMode = 'classic' | 'timed' | 'endless' | 'challenge';
 
@@ -65,12 +67,14 @@ export interface GameState {
   lastPoppedIds: string[];   // ids that just matched & blasted this tick
   lastFallingIds: string[];  // ids that became unconnected this tick
   nextBubble: PlayBubble;
+  bubbleQueue: PlayBubble[]; // next 2 upcoming bubbles after nextBubble
   bubblesRemaining: number;
   initialBubbleCount: number;
   coinsEarned: number;
   mode: GameMode;
   timeLeft?: number;
   freezeTicks: number;
+  swapsLeft: number;         // bubble-swap uses remaining this level
 }
 
 export interface LevelConfig {
