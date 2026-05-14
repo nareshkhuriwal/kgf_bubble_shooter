@@ -90,13 +90,18 @@ export const MIN_MATCH = 3;
 export const ANGLE_MIN = 15;
 export const ANGLE_MAX = 165;
 
-export const POWER_UPS: PowerUpKind[] = ['bomb', 'rainbow', 'fire', 'lightning', 'freeze', 'rocket'];
+export const POWER_UPS: PowerUpKind[] = ['bomb', 'rainbow', 'fire', 'lightning', 'freeze', 'rocket', 'meteor', 'star'];
 
 export const POWER_UP_EMOJI: Record<PowerUpKind, string> = {
-  bomb: '💣',
-  rainbow: '🌈',
-  fire: '🔥',
+  bomb:      '⚔️',
+  rainbow:   '🔮',
+  fire:      '🔥',
   lightning: '⚡',
-  freeze: '❄️',
-  rocket: '🚀',
+  freeze:    '❄️',
+  rocket:    '🏹',
+  meteor:    '☄️',
+  star:      '💫',
 };
+
+// Swap feature
+export const SWAPS_PER_LEVEL = 2;

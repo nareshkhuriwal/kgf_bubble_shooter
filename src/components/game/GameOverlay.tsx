@@ -1,12 +1,14 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Animated,
+  Easing,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Defs, RadialGradient, Stop, Circle } from 'react-native-svg';
 import { SCREEN_WIDTH as width } from '../../constants/gameConfig';
 
 type OverlayType = 'gameOver' | 'levelComplete' | 'pause';
@@ -15,7 +17,7 @@ interface GameOverlayProps {
   type: OverlayType;
   score: number;
   level: number;
-  starsEarned: number;   // 0-3 for this level
+  starsEarned: number;
   highScore: number;
   onRestart: () => void;
   onNextLevel: () => void;
@@ -23,8 +25,31 @@ interface GameOverlayProps {
   onResume?: () => void;
 }
 
-// Each star animates in with a bounce + glow
-const AnimatedStar: React.FC<{ lit: boolean; index: number }> = ({ lit, index }) => {
+// ─── Animated score counter ────────────────────────────────────────────────────
+const CountUp: React.FC<{ target: number; duration?: number }> = ({ target, duration = 1100 }) => {
+  const [displayed, setDisplayed] = useState(0);
+  const animVal = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (target === 0) return;
+    const listener = animVal.addListener(({ value }) => setDisplayed(Math.floor(value)));
+    Animated.timing(animVal, {
+      toValue: target,
+      duration,
+      delay: 400,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+    return () => animVal.removeListener(listener);
+  }, [target]);
+
+  return (
+    <Text style={styles.scoreValue}>{displayed.toLocaleString()}</Text>
+  );
+};
+
+// ─── Animated crown ────────────────────────────────────────────────────────────
+const AnimatedCrown: React.FC<{ lit: boolean; index: number }> = ({ lit, index }) => {
   const scale   = useRef(new Animated.Value(0)).current;
   const opacity = useRef(new Animated.Value(0)).current;
   const glow    = useRef(new Animated.Value(0)).current;
@@ -32,40 +57,89 @@ const AnimatedStar: React.FC<{ lit: boolean; index: number }> = ({ lit, index })
   useEffect(() => {
     if (lit) {
       Animated.sequence([
-        Animated.delay(300 + index * 200),
+        Animated.delay(350 + index * 220),
         Animated.parallel([
-          Animated.spring(scale,   { toValue: 1.4, tension: 250, friction: 5,  useNativeDriver: true }),
-          Animated.timing(opacity, { toValue: 1, duration: 150, useNativeDriver: true }),
-          Animated.timing(glow,    { toValue: 1, duration: 150, useNativeDriver: true }),
+          Animated.spring(scale,   { toValue: 1.45, tension: 260, friction: 5, useNativeDriver: true }),
+          Animated.timing(opacity, { toValue: 1, duration: 140, useNativeDriver: true }),
         ]),
-        Animated.spring(scale, { toValue: 1, tension: 150, friction: 8, useNativeDriver: true }),
-      ]).start();
+        Animated.spring(scale, { toValue: 1, tension: 160, friction: 9, useNativeDriver: true }),
+      ]).start(() => {
+        Animated.loop(
+          Animated.sequence([
+            Animated.timing(glow, { toValue: 1, duration: 1000, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+            Animated.timing(glow, { toValue: 0, duration: 1000, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+          ])
+        ).start();
+      });
     } else {
       Animated.parallel([
-        Animated.timing(scale,   { toValue: 1,    duration: 400 + index*100, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0.25, duration: 300,             useNativeDriver: true }),
+        Animated.timing(scale,   { toValue: 1, duration: 350 + index * 80, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.22, duration: 280, useNativeDriver: true }),
       ]).start();
     }
   }, [lit, index]);
 
+  const glowOpacity = glow.interpolate({ inputRange: [0, 1], outputRange: [0.0, 0.5] });
+
   return (
-    <Animated.View style={{ transform:[{scale}], opacity }}>
-      <Text style={[styles.starChar, lit && styles.starLit]}>
-        {lit ? '⭐' : '☆'}
-      </Text>
+    <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+      {lit && (
+        <Animated.Text
+          style={[
+            styles.crownChar,
+            styles.crownGlowLayer,
+            { transform: [{ scale }], opacity: glowOpacity },
+          ]}
+        >
+          👑
+        </Animated.Text>
+      )}
+      <Animated.Text style={[styles.crownChar, lit && styles.crownLit, { transform: [{ scale }], opacity }]}>
+        {lit ? '👑' : '♛'}
+      </Animated.Text>
+    </View>
+  );
+};
+
+// ─── New best pulsing badge ────────────────────────────────────────────────────
+const NewBestBadge: React.FC = () => {
+  const pulse = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1.08, duration: 500, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1, duration: 500, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
+  return (
+    <Animated.View style={[styles.newBestBadge, { transform: [{ scale: pulse }] }]}>
+      <Text style={styles.newBestText}>🏆  NEW RECORD!</Text>
     </Animated.View>
   );
 };
 
-const CONFETTI = ['🎊','⭐','✨','🎉','💫','🌟','🎈','🥳','🎀','🎁','🎆','🏆'];
+// ─── Kingdom confetti items ────────────────────────────────────────────────────
+const CONFETTI = ['⚔️','👑','💎','🏆','⭐','✨','🪙','⚜️','🔮','🏹','🛡️','🐉'];
 
+// ─── Decorative divider ────────────────────────────────────────────────────────
+const GoldDivider: React.FC = () => (
+  <View style={styles.divider}>
+    <View style={styles.dividerLine} />
+    <Text style={styles.dividerGem}>⚜️</Text>
+    <View style={styles.dividerLine} />
+  </View>
+);
+
+// ─── Main overlay ──────────────────────────────────────────────────────────────
 export const GameOverlay: React.FC<GameOverlayProps> = ({
   type, score, level, starsEarned, highScore,
   onRestart, onNextLevel, onHome, onResume,
 }) => {
-  const cardScale = useRef(new Animated.Value(0.7)).current;
-  const cardOp    = useRef(new Animated.Value(0)).current;
-  const confetti  = useRef(
+  const cardScale  = useRef(new Animated.Value(0.72)).current;
+  const cardOp     = useRef(new Animated.Value(0)).current;
+  const titleSlide = useRef(new Animated.Value(-16)).current;
+  const confetti   = useRef(
     Array.from({ length: 12 }, () => ({
       x:  new Animated.Value(0),
       y:  new Animated.Value(0),
@@ -76,21 +150,26 @@ export const GameOverlay: React.FC<GameOverlayProps> = ({
 
   useEffect(() => {
     Animated.parallel([
-      Animated.spring(cardScale, { toValue:1, tension:60, friction:8, useNativeDriver:true }),
-      Animated.timing(cardOp,    { toValue:1, duration:300, useNativeDriver:true }),
+      Animated.spring(cardScale,  { toValue: 1, tension: 65, friction: 8, useNativeDriver: true }),
+      Animated.timing(cardOp,     { toValue: 1, duration: 280, useNativeDriver: true }),
+      Animated.spring(titleSlide, { toValue: 0, tension: 80, friction: 10, useNativeDriver: true }),
     ]).start();
 
     if (type === 'levelComplete') {
       confetti.forEach((a, i) => {
         const angle = (i / 12) * 2 * Math.PI;
-        Animated.parallel([
-          Animated.timing(a.x,  { toValue: Math.cos(angle)*130, duration:900, useNativeDriver:true }),
-          Animated.timing(a.y,  { toValue: Math.sin(angle)*110 - 70, duration:900, useNativeDriver:true }),
-          Animated.sequence([
-            Animated.delay(450),
-            Animated.timing(a.op, { toValue:0, duration:450, useNativeDriver:true }),
+        const dist  = 120 + Math.random() * 30;
+        Animated.sequence([
+          Animated.delay(200),
+          Animated.parallel([
+            Animated.timing(a.x, { toValue: Math.cos(angle) * dist, duration: 850, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+            Animated.timing(a.y, { toValue: Math.sin(angle) * 100 - 60, duration: 850, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+            Animated.sequence([
+              Animated.delay(500),
+              Animated.timing(a.op, { toValue: 0, duration: 400, useNativeDriver: true }),
+            ]),
+            Animated.timing(a.r, { toValue: 360, duration: 850, useNativeDriver: true }),
           ]),
-          Animated.timing(a.r,  { toValue:360, duration:900, useNativeDriver:true }),
         ]).start();
       });
     }
@@ -99,93 +178,166 @@ export const GameOverlay: React.FC<GameOverlayProps> = ({
   const isComplete = type === 'levelComplete';
   const isPause    = type === 'pause';
   const isOver     = type === 'gameOver';
-  const isNewBest  = !isPause && score > 0 && score >= highScore;
+  const isNewBest  = !isPause && score > 0 && score >= highScore && highScore > 0;
 
   const cfg = {
-    gameOver:      { emoji:'😢', title:'Game Over!',   sub:'Better luck next time!', grad:['#2C3E50','#4a0e0e'] as [string,string] },
-    levelComplete: { emoji:'🎉', title:`Level ${level}`, sub:'COMPLETE!',           grad:['#0f3460','#533483'] as [string,string] },
-    pause:         { emoji:'⏸', title:'Paused',        sub:'Take a breather!',      grad:['#1a1a3e','#2C3E50'] as [string,string] },
+    gameOver: {
+      emoji:  '💀',
+      title:  'DEFEATED',
+      sub:    'The kingdom needs you!',
+      grad:   ['#200000', '#400808', '#1a0000'] as [string, string, string],
+      border: 'rgba(180,0,0,0.6)',
+    },
+    levelComplete: {
+      emoji:  '⚔️',
+      title:  `BATTLE ${level}`,
+      sub:    '— VICTORIOUS! —',
+      grad:   ['#0e0520', '#3d1a00', '#1c0a30'] as [string, string, string],
+      border: 'rgba(255,215,0,0.55)',
+    },
+    pause: {
+      emoji:  '🏕️',
+      title:  'ENCAMPED',
+      sub:    'Rest your troops...',
+      grad:   ['#0e0520', '#1a0a30', '#0e0520'] as [string, string, string],
+      border: 'rgba(255,215,0,0.3)',
+    },
   }[type];
 
   return (
     <Animated.View style={[styles.backdrop, { opacity: cardOp }]}>
-      <View style={StyleSheet.absoluteFillObject}>
-        <LinearGradient colors={['rgba(0,0,0,0.82)','rgba(0,0,0,0.96)']} style={StyleSheet.absoluteFill} />
-      </View>
+      {/* dark vignette bg */}
+      <LinearGradient
+        colors={['rgba(0,0,0,0.88)', 'rgba(8,0,4,0.96)']}
+        style={StyleSheet.absoluteFill}
+      />
 
-      <Animated.View style={[styles.card, { transform:[{scale:cardScale}] }]}>
-        <LinearGradient colors={cfg.grad} style={styles.cardInner} start={{x:0,y:0}} end={{x:1,y:1}}>
+      {/* subtle centre glow */}
+      <Svg style={StyleSheet.absoluteFill} width={width} height="100%">
+        <Defs>
+          <RadialGradient id="vig" cx="50%" cy="50%" rx="50%" ry="40%">
+            <Stop offset="0"   stopColor={isComplete ? '#FFD700' : isOver ? '#C00000' : '#3d00a0'} stopOpacity="0.08" />
+            <Stop offset="1"   stopColor="#000" stopOpacity="0" />
+          </RadialGradient>
+        </Defs>
+        <Circle cx={width / 2} cy="50%" r={width} fill="url(#vig)" />
+      </Svg>
 
-          {/* Confetti burst */}
+      <Animated.View style={[styles.card, { transform: [{ scale: cardScale }], borderColor: cfg.border }]}>
+        <LinearGradient
+          colors={cfg.grad}
+          style={styles.cardInner}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          {/* Top edge gold line */}
+          <View style={[styles.topEdge, { backgroundColor: cfg.border }]} />
+
+          {/* Confetti burst (level complete) */}
           {isComplete && confetti.map((a, i) => (
             <Animated.Text
               key={i}
               style={{
-                position:'absolute', fontSize:16, top:'42%', left:'50%',
-                transform:[
+                position: 'absolute',
+                fontSize: 15,
+                top: '38%',
+                left: '50%',
+                transform: [
                   { translateX: a.x },
                   { translateY: a.y },
-                  { rotate: a.r.interpolate({ inputRange:[0,360], outputRange:['0deg','360deg'] }) },
+                  { rotate: a.r.interpolate({ inputRange: [0, 360], outputRange: ['0deg', '360deg'] }) },
                 ],
                 opacity: a.op,
               }}
-            >{CONFETTI[i]}</Animated.Text>
+            >
+              {CONFETTI[i]}
+            </Animated.Text>
           ))}
 
-          {/* Header */}
-          <Text style={styles.emoji}>{cfg.emoji}</Text>
-          <Text style={styles.title}>{cfg.title}</Text>
-          <Text style={styles.subtitle}>{cfg.sub}</Text>
+          {/* Emoji + Title */}
+          <Animated.View
+            style={[styles.titleBlock, { transform: [{ translateY: titleSlide }] }]}
+          >
+            <Text style={styles.emoji}>{cfg.emoji}</Text>
+            <Text style={[styles.title, isComplete && styles.titleVictory]}>
+              {cfg.title}
+            </Text>
+            <Text style={[styles.subtitle, isComplete && styles.subtitleVictory, isOver && styles.subtitleDead]}>
+              {cfg.sub}
+            </Text>
+          </Animated.View>
 
-          {/* Stars row — only on level complete */}
+          <GoldDivider />
+
+          {/* Crowns earned (level complete) */}
           {isComplete && (
-            <View style={styles.starsBlock}>
-              <Text style={styles.starsLabel}>STARS EARNED</Text>
-              <View style={styles.starsRow}>
-                {[0,1,2].map(i => (
-                  <AnimatedStar key={i} lit={i < starsEarned} index={i} />
+            <View style={styles.crownsBlock}>
+              <Text style={styles.crownsLabel}>CROWNS EARNED</Text>
+              <View style={styles.crownsRow}>
+                {[0, 1, 2].map(i => (
+                  <AnimatedCrown key={i} lit={i < starsEarned} index={i} />
                 ))}
               </View>
             </View>
           )}
 
-          {/* Score block */}
+          {/* Glory (score) block */}
           {!isPause && (
             <View style={styles.scoreBlock}>
-              <Text style={styles.scoreLabel}>SCORE</Text>
-              <Text style={styles.scoreValue}>{score.toLocaleString()}</Text>
-              {isNewBest && <Text style={styles.newBest}>🏆 NEW BEST!</Text>}
+              <Text style={styles.scoreLabel}>⚜️  GLORY</Text>
+              <CountUp target={score} />
+              {isNewBest && <NewBestBadge />}
+            </View>
+          )}
+
+          {/* Pause info */}
+          {isPause && (
+            <View style={styles.pauseBlock}>
+              <Text style={styles.pauseInfo}>Level  <Text style={styles.pauseVal}>{level}</Text></Text>
+              <Text style={styles.pauseInfo}>Score  <Text style={styles.pauseVal}>{score.toLocaleString()}</Text></Text>
             </View>
           )}
 
           {/* Buttons */}
           <View style={styles.btns}>
             {isPause && (
-              <TouchableOpacity style={styles.btnPrimary} onPress={onResume}>
-                <LinearGradient colors={['#2F86EB','#0f3460']} style={styles.btnGrad}>
-                  <Text style={styles.btnTxt}>▶  Resume</Text>
+              <TouchableOpacity style={styles.btnPrimary} onPress={onResume} activeOpacity={0.82}>
+                <LinearGradient
+                  colors={['#8B4513', '#5a2d0a']}
+                  style={styles.btnGrad}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                >
+                  <Text style={styles.btnTxt}>▶  Resume March</Text>
                 </LinearGradient>
               </TouchableOpacity>
             )}
 
             {isComplete && (
-              <TouchableOpacity style={styles.btnPrimary} onPress={onNextLevel}>
-                <LinearGradient colors={['#FFD700','#FF6B35']} style={styles.btnGrad} start={{x:0,y:0}} end={{x:1,y:0}}>
-                  <Text style={styles.btnTxt}>Next Level  →</Text>
+              <TouchableOpacity style={styles.btnPrimary} onPress={onNextLevel} activeOpacity={0.82}>
+                <LinearGradient
+                  colors={['#FFE566', '#FFD700', '#C0392B']}
+                  style={styles.btnGrad}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                >
+                  <Text style={styles.btnTxt}>Next Battle  ⚔️</Text>
                 </LinearGradient>
               </TouchableOpacity>
             )}
 
             {isOver && (
-              <TouchableOpacity style={styles.btnPrimary} onPress={onRestart}>
-                <LinearGradient colors={['#FF6B35','#FF4757']} style={styles.btnGrad} start={{x:0,y:0}} end={{x:1,y:0}}>
-                  <Text style={styles.btnTxt}>↩  Try Again</Text>
+              <TouchableOpacity style={styles.btnPrimary} onPress={onRestart} activeOpacity={0.82}>
+                <LinearGradient
+                  colors={['#C0392B', '#8B0000', '#5a0000']}
+                  style={styles.btnGrad}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                >
+                  <Text style={styles.btnTxt}>⚔️  Charge Again!</Text>
                 </LinearGradient>
               </TouchableOpacity>
             )}
 
-            <TouchableOpacity style={styles.btnSecondary} onPress={onHome}>
-              <Text style={styles.btnSecTxt}>🏠  Home</Text>
+            <TouchableOpacity style={styles.btnSecondary} onPress={onHome} activeOpacity={0.8}>
+              <Text style={styles.btnSecTxt}>🏰  Return to Castle</Text>
             </TouchableOpacity>
           </View>
 
@@ -203,93 +355,188 @@ const styles = StyleSheet.create({
     zIndex: 100,
   },
   card: {
-    width: width * 0.84,
+    width: width * 0.86,
     borderRadius: 28,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width:0, height:20 },
-    shadowOpacity: 0.6,
+    borderWidth: 1.5,
+    shadowColor: '#FFD700',
+    shadowOffset: { width: 0, height: 18 },
+    shadowOpacity: 0.55,
     shadowRadius: 30,
-    elevation: 20,
+    elevation: 22,
   },
   cardInner: {
-    padding: 28,
+    padding: 26,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
     borderRadius: 28,
   },
-  emoji:    { fontSize: 52, marginBottom: 6 },
-  title:    { color:'#fff', fontSize:28, fontWeight:'900', letterSpacing:1 },
-  subtitle: { color:'#FFD700', fontSize:18, fontWeight:'800', marginBottom:14 },
+  topEdge: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0,
+    height: 2,
+    opacity: 0.8,
+  },
 
-  // Stars
-  starsBlock: {
+  // ── Title block ──
+  titleBlock: { alignItems: 'center', marginBottom: 4, marginTop: 4 },
+  emoji: { fontSize: 54, marginBottom: 4 },
+  title: {
+    color: '#fff',
+    fontSize: 26,
+    fontWeight: '900',
+    letterSpacing: 2,
+    textShadowColor: 'rgba(0,0,0,0.6)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 6,
+  },
+  titleVictory: {
+    color: '#FFD700',
+    textShadowColor: 'rgba(255,215,0,0.5)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 12,
+  },
+  subtitle: {
+    color: 'rgba(255,220,180,0.75)',
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: 2,
+    letterSpacing: 0.5,
+  },
+  subtitleVictory: {
+    color: '#FFD700',
+    fontSize: 16,
+    fontWeight: '900',
+    letterSpacing: 1.5,
+    textShadowColor: 'rgba(255,215,0,0.6)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
+  },
+  subtitleDead: { color: 'rgba(255,100,100,0.65)' },
+
+  // ── Divider ──
+  divider: {
+    flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.25)',
-    borderRadius: 16,
+    width: '100%',
+    marginVertical: 12,
+    gap: 8,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255,215,0,0.25)',
+  },
+  dividerGem: { fontSize: 14, opacity: 0.7 },
+
+  // ── Crowns ──
+  crownsBlock: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderRadius: 18,
     paddingHorizontal: 24,
-    paddingVertical: 12,
+    paddingVertical: 14,
     width: '100%',
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,215,0,0.2)',
   },
-  starsLabel: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 2,
-    marginBottom: 8,
+  crownsLabel: {
+    color: 'rgba(255,215,0,0.6)',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 2.5,
+    marginBottom: 10,
   },
-  starsRow: {
+  crownsRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  starChar: {
-    fontSize: 38,
-    color: 'rgba(255,255,255,0.3)',
-  },
-  starLit: {
+  crownChar: { fontSize: 40, color: 'rgba(255,255,255,0.22)' },
+  crownLit: {
     color: '#FFD700',
-    textShadowColor: '#FFD700',
-    textShadowOffset: { width:0, height:0 },
-    textShadowRadius: 12,
+    textShadowColor: 'rgba(255,215,0,0.7)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 16,
+  },
+  crownGlowLayer: {
+    position: 'absolute',
+    color: '#FFD700',
   },
 
-  // Score
+  // ── Score ──
   scoreBlock: {
     alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    width: '100%',
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,215,0,0.18)',
+  },
+  scoreLabel: {
+    color: 'rgba(255,215,0,0.65)',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 2.5,
+    marginBottom: 2,
+  },
+  scoreValue: {
+    color: '#fff',
+    fontSize: 42,
+    fontWeight: '900',
+    textShadowColor: 'rgba(255,215,0,0.35)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
+  },
+  newBestBadge: {
+    marginTop: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,215,0,0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,215,0,0.5)',
+  },
+  newBestText: { color: '#FFD700', fontSize: 12, fontWeight: '900', letterSpacing: 1 },
+
+  // ── Pause block ──
+  pauseBlock: {
+    width: '100%',
     backgroundColor: 'rgba(0,0,0,0.3)',
     borderRadius: 14,
     padding: 14,
-    width: '100%',
-    marginBottom: 18,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,215,0,0.15)',
+    gap: 6,
   },
-  scoreLabel: { color:'rgba(255,255,255,0.6)', fontSize:11, fontWeight:'700', letterSpacing:2 },
-  scoreValue: { color:'#fff', fontSize:38, fontWeight:'900' },
-  newBest:    { color:'#FFD700', fontSize:14, fontWeight:'900', marginTop:4 },
+  pauseInfo: { color: 'rgba(255,220,180,0.6)', fontSize: 13, fontWeight: '700', letterSpacing: 0.5 },
+  pauseVal:  { color: '#FFD700', fontWeight: '900' },
 
-  // Buttons
-  btns: { width:'100%', gap:10 },
+  // ── Buttons ──
+  btns: { width: '100%', gap: 10 },
   btnPrimary: {
     borderRadius: 14,
     overflow: 'hidden',
     shadowColor: '#FFD700',
-    shadowOffset:{width:0,height:4},
-    shadowOpacity:0.4,
-    shadowRadius:10,
-    elevation:6,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.45,
+    shadowRadius: 10,
+    elevation: 6,
   },
-  btnGrad: { paddingVertical:14, alignItems:'center' },
-  btnTxt:  { color:'#fff', fontSize:17, fontWeight:'900', letterSpacing:0.5 },
+  btnGrad: { paddingVertical: 15, alignItems: 'center' },
+  btnTxt:  { color: '#fff', fontSize: 17, fontWeight: '900', letterSpacing: 0.6 },
   btnSecondary: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(180,60,0,0.2)',
     paddingVertical: 14,
     alignItems: 'center',
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderColor: 'rgba(255,215,0,0.25)',
   },
-  btnSecTxt: { color:'rgba(255,255,255,0.85)', fontSize:15, fontWeight:'700' },
+  btnSecTxt: { color: 'rgba(255,220,150,0.88)', fontSize: 15, fontWeight: '700' },
 });

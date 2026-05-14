@@ -12,6 +12,7 @@ import {
   CANNON_LENGTH,
   CANNON_X,
   CANNON_Y,
+  SWAPS_PER_LEVEL,
   calcStars,
 } from '../constants/gameConfig';
 import {
@@ -42,13 +43,19 @@ function buildInitialState(level: number, highScore: number): GameState {
   const grid = generateInitialGrid(config.rows, config.cols, config.colors, config);
   const colorsInGrid = getColorsInGrid(grid);
   const playableColors = colorsInGrid.length > 0 ? colorsInGrid : config.colors;
-  const nextBubble = randomPlayBubble(playableColors, config.powerUpRate ?? 0);
+  const rate = config.powerUpRate ?? 0;
+  const nextBubble   = randomPlayBubble(playableColors, rate);
+  const bubbleQueue  = [
+    randomPlayBubble(playableColors, rate),
+    randomPlayBubble(playableColors, rate),
+  ];
   const initialBubbleCount = countBubbles(grid);
   return {
     grid,
     projectile: null,
     nextColor: nextBubble.color,
     nextBubble,
+    bubbleQueue,
     score: 0,
     level,
     shotsLeft: config.shotsAllowed,
@@ -65,6 +72,7 @@ function buildInitialState(level: number, highScore: number): GameState {
     coinsEarned: 0,
     mode: 'classic',
     freezeTicks: 0,
+    swapsLeft: SWAPS_PER_LEVEL,
   };
 }
 
@@ -74,7 +82,8 @@ type EngineAction =
   | { type: 'TICK'; dt: number }
   | { type: 'RESET' }
   | { type: 'NEXT_LEVEL' }
-  | { type: 'GO_TO_LEVEL'; level: number };
+  | { type: 'GO_TO_LEVEL'; level: number }
+  | { type: 'SWAP_BUBBLE' };
 
 function gameReducer(state: GameState, action: EngineAction): GameState {
   switch (action.type) {
@@ -89,6 +98,12 @@ function gameReducer(state: GameState, action: EngineAction): GameState {
       const { vx, vy } = angleToVector(state.cannonAngle);
       const unit = angleToUnitVector(state.cannonAngle);
       const muzzleOffset = CANNON_LENGTH + BUBBLE_RADIUS * 0.35;
+      const config = getLevelConfig(state.level);
+      const colorsInGrid = getColorsInGrid(state.grid);
+      const playableColors = colorsInGrid.length > 0 ? colorsInGrid : config.colors;
+      // Shift queue: next = queue[0], queue = [queue[1], new]
+      const [upcomingNext, ...rest] = state.bubbleQueue;
+      const newQueued = randomPlayBubble(playableColors, config.powerUpRate ?? 0);
       return {
         ...state,
         lastPoppedIds: [],
@@ -103,7 +118,23 @@ function gameReducer(state: GameState, action: EngineAction): GameState {
           vy,
           isMoving: true,
         },
+        nextBubble: upcomingNext ?? state.nextBubble,
+        nextColor: (upcomingNext ?? state.nextBubble).color,
+        bubbleQueue: [...rest, newQueued],
         shotsLeft: state.shotsLeft - 1,
+      };
+    }
+
+    case 'SWAP_BUBBLE': {
+      if (state.swapsLeft <= 0 || state.projectile?.isMoving) return state;
+      // Swap current nextBubble with the first bubble in queue
+      const [first, ...remaining] = state.bubbleQueue;
+      return {
+        ...state,
+        nextBubble: first,
+        nextColor: first.color,
+        bubbleQueue: [state.nextBubble, ...remaining],
+        swapsLeft: state.swapsLeft - 1,
       };
     }
 
@@ -205,10 +236,6 @@ function gameReducer(state: GameState, action: EngineAction): GameState {
       const shotsBonus = isLevelComplete ? state.shotsLeft * SHOT_BONUS : 0;
       const newScore = state.score + scoreGain + shotsBonus;
       const starsEarned = isLevelComplete ? calcStars(newScore, state.level) : 0;
-      const colorsInGrid = getColorsInGrid(newGrid);
-      const config = getLevelConfig(state.level);
-      const nextBubble = randomPlayBubble(colorsInGrid.length > 0 ? colorsInGrid : config.colors, config.powerUpRate ?? 0);
-      const nextColor = nextBubble.color;
       const isGameOver = !isLevelComplete && state.shotsLeft === 0 && totalBubbles > 0;
       const coinsEarned = isLevelComplete ? starsEarned * 25 + Math.floor(newScore / 1000) : state.coinsEarned;
 
@@ -216,8 +243,6 @@ function gameReducer(state: GameState, action: EngineAction): GameState {
         ...state,
         grid: newGrid,
         projectile: { ...moved, isMoving: false },
-        nextColor,
-        nextBubble,
         score: newScore,
         highScore: Math.max(state.highScore, newScore),
         combo: newCombo,
@@ -248,11 +273,11 @@ function gameReducer(state: GameState, action: EngineAction): GameState {
   }
 }
 
-export function useGameEngine(startLevel = 1) {
+export function useGameEngine(startLevel = 1, initialHighScore = 0) {
   const [state, dispatch] = useReducer(
     gameReducer,
     undefined,
-    () => buildInitialState(startLevel, 0)
+    () => buildInitialState(startLevel, initialHighScore)
   );
 
   const rafRef      = useRef<number>(0);
@@ -280,11 +305,12 @@ export function useGameEngine(startLevel = 1) {
 
   useEffect(() => () => { running.current = false; cancelAnimationFrame(rafRef.current); }, []);
 
-  const shoot    = useCallback(() => dispatch({ type: 'SHOOT' }), []);
-  const aimAt    = useCallback((x: number, y: number) => dispatch({ type: 'AIM_AT', x, y }), []);
-  const reset    = useCallback(() => dispatch({ type: 'RESET' }), []);
-  const nextLevel = useCallback(() => dispatch({ type: 'NEXT_LEVEL' }), []);
-  const goToLevel = useCallback((level: number) => dispatch({ type: 'GO_TO_LEVEL', level }), []);
+  const shoot      = useCallback(() => dispatch({ type: 'SHOOT' }), []);
+  const aimAt      = useCallback((x: number, y: number) => dispatch({ type: 'AIM_AT', x, y }), []);
+  const reset      = useCallback(() => dispatch({ type: 'RESET' }), []);
+  const nextLevel  = useCallback(() => dispatch({ type: 'NEXT_LEVEL' }), []);
+  const goToLevel  = useCallback((level: number) => dispatch({ type: 'GO_TO_LEVEL', level }), []);
+  const swapBubble = useCallback(() => dispatch({ type: 'SWAP_BUBBLE' }), []);
 
-  return { state, shoot, aimAt, reset, nextLevel, goToLevel };
+  return { state, shoot, aimAt, reset, nextLevel, goToLevel, swapBubble };
 }

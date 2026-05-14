@@ -13,27 +13,29 @@ import { GAME_MAX_WIDTH, GAME_MAX_HEIGHT } from './src/constants/gameConfig';
 type Screen = 'home' | 'levelSelect' | 'game';
 
 export default function App() {
-  const [screen, setScreen]         = useState<Screen>('home');
+  const [screen, setScreen]           = useState<Screen>('home');
   const [activeLevel, setActiveLevel] = useState(1);
-  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const fadeAnim  = useRef(new Animated.Value(1)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
+  // Single source of truth for player progress — shared across all screens
   const { progress, saveLevel, claimDaily } = usePlayerProgress();
 
   const navigate = useCallback((to: Screen, level = 1) => {
     Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
+      Animated.timing(fadeAnim,  { toValue: 0,    duration: 180, useNativeDriver: true }),
       Animated.timing(scaleAnim, { toValue: 0.96, duration: 180, useNativeDriver: true }),
     ]).start(() => {
       setActiveLevel(level);
       setScreen(to);
       Animated.parallel([
-        Animated.timing(fadeAnim, { toValue: 1, duration: 260, useNativeDriver: true }),
+        Animated.timing(fadeAnim,  { toValue: 1, duration: 260, useNativeDriver: true }),
         Animated.spring(scaleAnim, { toValue: 1, tension: 90, friction: 9, useNativeDriver: true }),
       ]).start();
     });
-  }, []);
+  }, [fadeAnim, scaleAnim]);
 
+  // Called by GameScreen when a level ends — persists to progress
   const handleLevelComplete = useCallback((level: number, stars: number, score: number) => {
     saveLevel(level, stars, score);
   }, [saveLevel]);
@@ -58,6 +60,7 @@ export default function App() {
       {screen === 'game' && (
         <GameScreen
           startLevel={activeLevel}
+          initialHighScore={progress.highScore}
           onHome={() => navigate('home')}
           onLevelComplete={handleLevelComplete}
         />
@@ -84,11 +87,11 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#111' },
+  root: { flex: 1, backgroundColor: '#0a0008' },
   fill: { flex: 1 },
   webShell: {
     flex: 1,
-    backgroundColor: '#06060f',
+    backgroundColor: '#060004',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -97,12 +100,12 @@ const styles = StyleSheet.create({
     height: GAME_MAX_HEIGHT,
     borderRadius: 36,
     overflow: 'hidden',
-    backgroundColor: '#0f0f2e',
-    shadowColor: '#4ECDC4',
+    backgroundColor: '#0d0514',
+    shadowColor: '#FFD700',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.45,
     shadowRadius: 44,
     borderWidth: 2,
-    borderColor: 'rgba(78,205,196,0.35)',
+    borderColor: 'rgba(255,215,0,0.3)',
   },
 });

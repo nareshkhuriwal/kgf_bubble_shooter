@@ -10,7 +10,7 @@ const palettes: BubbleColor[][] = [
   ['red', 'blue', 'green', 'yellow', 'purple', 'orange', 'pink', 'cyan'],
 ];
 
-const WORLD_NAMES = ['Sunny Pop', 'Neon Garden', 'Crystal Rush', 'Expert Orbit'];
+const WORLD_NAMES = ['The Village', 'The Fortress', 'The Citadel', "Dragon's Keep"];
 
 function makePattern(level: number, rows: number): string[][] {
   const pattern: string[][] = [];
@@ -21,8 +21,11 @@ function makePattern(level: number, rows: number): string[][] {
       const edge = c === 0 || c === cols - 1;
       const checker = (r + c + level) % 5 === 0;
       const lane = c === Math.floor(cols / 2) && level % 4 === 0;
-      if (level > 24 && checker) row.push('L');
-      else if (level > 18 && lane) row.push('I');
+      // Steel: columns 2 and cols-3, every 3rd row from row 2 — interior pillars
+      const steelPillar = !edge && r > 1 && r % 3 === 1 && (c === 2 || c === cols - 3);
+      if      (level > 24 && checker) row.push('L');
+      else if (level > 18 && lane)    row.push('I');
+      else if (level > 15 && steelPillar) row.push('T');
       else if (level > 11 && edge && r > 1 && r % 3 === 0) row.push('S');
       else row.push('.');
     }
@@ -56,8 +59,8 @@ export const LEVELS: LevelConfig[] = Array.from({ length: 32 }, (_, index) => {
 });
 
 export const WORLDS = [
-  { id: 1, name: 'World 1', label: 'Easy', levelRange: [1, 8] as const, colors: ['#1a1a4e', '#2ED573'] as const },
-  { id: 2, name: 'World 2', label: 'Medium', levelRange: [9, 16] as const, colors: ['#2a1a6e', '#2F86EB'] as const },
-  { id: 3, name: 'World 3', label: 'Hard', levelRange: [17, 24] as const, colors: ['#3a144d', '#FF6B35'] as const },
-  { id: 4, name: 'World 4', label: 'Expert', levelRange: [25, 32] as const, colors: ['#1b102f', '#FF4757'] as const },
+  { id: 1, name: 'The Village',    label: 'Peasant',     levelRange: [1,  8]  as const, colors: ['#1a3a0a', '#4a7c2f'] as const },
+  { id: 2, name: 'The Fortress',   label: 'Knight',      levelRange: [9,  16] as const, colors: ['#2a1a0e', '#8B4513'] as const },
+  { id: 3, name: 'The Citadel',    label: 'Baron',       levelRange: [17, 24] as const, colors: ['#3a0a0a', '#C0392B'] as const },
+  { id: 4, name: "Dragon's Keep",  label: 'Dragon Lord', levelRange: [25, 32] as const, colors: ['#1a0a2e', '#7B0000'] as const },
 ];

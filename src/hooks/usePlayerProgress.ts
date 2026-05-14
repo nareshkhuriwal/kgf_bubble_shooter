@@ -1,10 +1,8 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { PlayerProgress } from '../types';
 import { COINS_PER_STAR, TOTAL_LEVELS } from '../constants/gameConfig';
-import { readJson, writeJson } from '../systems/storage';
+import { readProgress, writeProgress } from '../systems/storage';
 import { achievementsFor, claimDailyReward } from '../systems/rewards';
-
-const SAVE_KEY = 'bubble-shooter-progress-v2';
 
 function makeInitialProgress(): PlayerProgress {
   return {
@@ -20,28 +18,47 @@ function makeInitialProgress(): PlayerProgress {
 }
 
 export function usePlayerProgress() {
-  const [progress, setProgress] = useState<PlayerProgress>(() => {
-    const saved = readJson<PlayerProgress>(SAVE_KEY);
-    if (!saved) return makeInitialProgress();
-    const levelStars = Array(TOTAL_LEVELS).fill(0).map((_, i) => saved.levelStars?.[i] ?? 0);
-    return { ...makeInitialProgress(), ...saved, levelStars };
-  });
+  const [progress, setProgress] = useState<PlayerProgress>(makeInitialProgress);
+  const [loaded, setLoaded] = useState(false);
 
+  // Ref always mirrors the latest progress — lets callbacks read current
+  // state synchronously without being listed as effect deps.
+  const progressRef = useRef<PlayerProgress>(progress);
   useEffect(() => {
-    writeJson(SAVE_KEY, progress);
+    progressRef.current = progress;
   }, [progress]);
+
+  // Load persisted progress once on mount
+  useEffect(() => {
+    let cancelled = false;
+    readProgress().then(saved => {
+      if (cancelled) return;
+      if (saved) {
+        const levelStars = Array(TOTAL_LEVELS).fill(0).map(
+          (_, i) => saved.levelStars?.[i] ?? 0,
+        );
+        setProgress({ ...makeInitialProgress(), ...saved, levelStars });
+      }
+      setLoaded(true);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Persist on every change (after initial load to avoid overwriting with empty state)
+  useEffect(() => {
+    if (!loaded) return;
+    writeProgress(progress);
+  }, [progress, loaded]);
 
   // Call when a level finishes — saves best stars & updates unlock
   const saveLevel = useCallback((level: number, stars: number, score: number) => {
     setProgress(prev => {
       const newStars = [...prev.levelStars];
       const idx = level - 1;
-      // Only upgrade, never downgrade
       newStars[idx] = Math.max(newStars[idx], stars);
       const totalStars = newStars.reduce((a, b) => a + b, 0);
       const highScore = Math.max(prev.highScore, score);
       const starDelta = newStars[idx] - (prev.levelStars[idx] ?? 0);
-      // Unlock the next level when current is completed with ≥1 star
       const unlockedUpTo = stars >= 1
         ? Math.min(TOTAL_LEVELS, Math.max(prev.unlockedUpTo, level + 1))
         : prev.unlockedUpTo;
@@ -55,15 +72,15 @@ export function usePlayerProgress() {
     setProgress(makeInitialProgress());
   }, []);
 
-  const claimDaily = useCallback(() => {
-    let result = { reward: 0, claimed: false };
-    setProgress(prev => {
-      const claim = claimDailyReward(prev);
-      result = { reward: claim.reward, claimed: claim.claimed };
-      return claim.progress;
-    });
-    return result;
+  // Compute the result synchronously from the ref — avoids the stale-closure
+  // trap of reading `result` before the setState updater has run.
+  const claimDaily = useCallback((): { reward: number; claimed: boolean } => {
+    const claim = claimDailyReward(progressRef.current);
+    if (claim.claimed) {
+      setProgress(claim.progress);
+    }
+    return { reward: claim.reward, claimed: claim.claimed };
   }, []);
 
-  return { progress, saveLevel, resetProgress, claimDaily };
+  return { progress, loaded, saveLevel, resetProgress, claimDaily };
 }
