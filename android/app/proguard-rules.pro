@@ -12,3 +12,23 @@
 -keep class com.facebook.react.turbomodule.** { *; }
 
 # Add any project specific keep options here:
+
+# React Native core
+-keep class com.facebook.react.** { *; }
+-keep class com.facebook.hermes.** { *; }
+-keep class com.facebook.jni.** { *; }
+
+# Expo modules
+-keep class expo.modules.** { *; }
+
+# Keep JS bundle entry points
+-keep class com.khuriwalgroup.bubblekingdom.** { *; }
+
+# Keep native methods
+-keepclassmembers class * {
+    @com.facebook.react.bridge.ReactMethod *;
+}
+
+# Suppress warnings for missing classes
+-dontwarn com.facebook.react.**
+-dontwarn expo.modules.**

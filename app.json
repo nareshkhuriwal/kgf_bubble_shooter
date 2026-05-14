@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "KGF Orbito",
-    "slug": "kgf-orbito",
-    "version": "1.0.0",
+    "name": "Bubble Kingdom",
+    "slug": "bubble-kingdom",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -13,13 +13,13 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.khuriwalgroup",
+      "bundleIdentifier": "com.khuriwalgroup.bubblekingdom",
       "infoPlist": {
         "UIStatusBarStyle": "UIStatusBarStyleLightContent"
       }
     },
     "android": {
-      "package": "com.khuriwalgroup",
+      "package": "com.khuriwalgroup.bubblekingdom",
       "statusBar": {
         "barStyle": "light-content",
         "backgroundColor": "#0f0f2e"
