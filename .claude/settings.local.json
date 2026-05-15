@@ -2,7 +2,18 @@
   "permissions": {
     "allow": [
       "Bash(python -c \"from PIL import Image; print\\('Pillow OK'\\)\")",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(npm run *)",
+      "Bash(npx tsc *)",
+      "Bash(python3 scripts/gen_screenshots.py)",
+      "Bash(./gradlew clean *)",
+      "Bash(python3 scripts/gen_store_assets.py)",
+      "Bash(python3 *)",
+      "Bash(open *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git rm *)",
+      "Bash(git add *)"
     ]
   }
 }
