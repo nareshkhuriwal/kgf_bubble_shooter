@@ -1,5 +1,5 @@
 from PIL import Image, ImageDraw, ImageFont
-import os, random
+import os, random, math
 
 ASSETS = os.path.join(os.path.dirname(__file__), '../assets')
 OUT    = os.path.join(os.path.dirname(__file__), '../assets/screenshots')
@@ -15,45 +15,28 @@ BUBBLE_COLORS = [
     [(255,105,180),(220,60,150)],
     [(0,206,209),(0,160,170)],
 ]
-GOLD   = (255,215,0)
-WHITE  = (255,255,255)
-PURPLE = (83,52,131)
-CYAN   = (47,213,255)
-GREEN  = (46,213,115)
-ORANGE = (255,107,53)
-RED    = (255,71,87)
-BG_TOP = (8,8,31)
-BG_BOT = (40,10,80)
 
-def make_gradient(w, h, top, bot):
-    img = Image.new('RGB', (w, h))
-    draw = ImageDraw.Draw(img)
-    for y in range(h):
-        t = y / h
-        r = int(top[0]+(bot[0]-top[0])*t)
-        g = int(top[1]+(bot[1]-top[1])*t)
-        b = int(top[2]+(bot[2]-top[2])*t)
-        draw.line([(0,y),(w,y)], fill=(r,g,b))
-    return img
+GOLD     = (255,215,0)
+GOLD_DIM = (184,134,11)
+WHITE    = (255,255,255)
+RED_HI   = (255,26,26)
+RED_DARK = (139,0,0)
+PURPLE_CARD = (28,9,69)
 
-def add_stars(draw, w, h, count=120, seed=42):
-    random.seed(seed)
-    for _ in range(count):
-        x = random.randint(0,w); y = random.randint(0,h//2)
-        s = random.randint(1,3); br = random.randint(150,255)
-        draw.ellipse([x-s,y-s,x+s,y+s], fill=(br,br,br))
+BG_HOME  = [(8,0,48),(19,0,80),(30,8,96),(42,13,20),(90,24,0)]
+BG_LEVEL = [(5,2,16),(14,6,32),(28,10,48),(45,13,16)]
 
-def draw_bubble(draw, cx, cy, r, cp):
-    for i in range(5,0,-1):
-        g = tuple(min(255,int(c*1.3)) for c in cp[1])
-        draw.ellipse([cx-r-i,cy-r-i,cx+r+i,cy+r+i], outline=g)
-    draw.ellipse([cx-r,cy-r,cx+r,cy+r], fill=cp[0])
-    hr = max(4,r//3)
-    draw.ellipse([cx-r+r//4-hr,cy-r+r//5-hr,cx-r+r//4+hr,cy-r+r//5+hr], fill=WHITE)
+WORLDS = [
+    {'name':'The Village',  'label':'Peasant',    'range':(1,8),   'colors':((26,58,10),(74,124,47))},
+    {'name':'The Fortress', 'label':'Knight',     'range':(9,16),  'colors':((42,26,14),(139,69,19))},
+    {'name':'The Citadel',  'label':'Baron',      'range':(17,24), 'colors':((58,10,10),(192,57,43))},
+    {'name':"Dragon's Keep",'label':'Dragon Lord','range':(25,32), 'colors':((26,10,46),(123,0,0))},
+]
+WORLD_ICONS = ['🌿','🏰','🗡️','🐉']
 
 def get_font(size, bold=True):
     paths = [
-        "/System/Library/Fonts/Supplemental/Arial Bold.ttf" if bold else "/System/Library/Fonts/Helvetica.ttc",
+        "/System/Library/Fonts/Supplemental/Arial Bold.ttf" if bold else "/System/Library/Fonts/Supplemental/Arial.ttf",
         "/System/Library/Fonts/Helvetica.ttc",
     ]
     for p in paths:
@@ -61,185 +44,343 @@ def get_font(size, bold=True):
         except: pass
     return ImageFont.load_default()
 
-def centered_text(draw, W, y, text, size, color, bold=True):
-    font = get_font(size, bold)
-    bbox = draw.textbbox((0,0), text, font=font)
-    tw = bbox[2]-bbox[0]
-    draw.text(((W-tw)//2, y), text, fill=color, font=font)
+def emoji_font(size):
+    try: return ImageFont.truetype("/System/Library/Fonts/Apple Color Emoji.ttc", size)
+    except: return get_font(size)
 
-def shadow_text(draw, W, y, text, size, color):
-    font = get_font(size)
-    bbox = draw.textbbox((0,0), text, font=font)
-    tw = bbox[2]-bbox[0]
-    x = (W-tw)//2
-    draw.text((x+3,y+3), text, fill=(0,0,0), font=font)
-    draw.text((x,y), text, fill=color, font=font)
+def make_gradient_multi(w, h, stops):
+    img  = Image.new('RGB', (w, h))
+    draw = ImageDraw.Draw(img)
+    n    = len(stops) - 1
+    for y in range(h):
+        t     = y / h * n
+        i     = min(int(t), n-1)
+        frac  = t - i
+        c0, c1 = stops[i], stops[i+1]
+        r = int(c0[0] + (c1[0]-c0[0]) * frac)
+        g = int(c0[1] + (c1[1]-c0[1]) * frac)
+        b = int(c0[2] + (c1[2]-c0[2]) * frac)
+        draw.line([(0,y),(w,y)], fill=(r,g,b))
+    return img
 
-def draw_pill(draw, x1, y1, x2, y2, fill, outline=None, radius=30):
-    draw.rounded_rectangle([x1,y1,x2,y2], radius=radius, fill=fill, outline=outline, width=3)
+def make_gradient(w, h, top, bot):
+    return make_gradient_multi(w, h, [top, bot])
+
+def add_stars(draw, w, h, count=140, seed=42):
+    random.seed(seed)
+    for _ in range(count):
+        x  = random.randint(0, w)
+        y  = random.randint(0, int(h*0.6))
+        s  = random.choice([1,1,2,2,3])
+        br = random.randint(140,255)
+        draw.ellipse([x-s,y-s,x+s,y+s], fill=(br,br,br))
+
+def draw_bubble(draw, cx, cy, r, cp):
+    inner, outer = cp[0], cp[1]
+    for i in range(6,0,-1):
+        g = tuple(min(255,int(c*1.25)) for c in outer)
+        draw.ellipse([cx-r-i,cy-r-i,cx+r+i,cy+r+i], outline=g)
+    draw.ellipse([cx-r,cy-r,cx+r,cy+r], fill=inner)
+    hr = max(4, r//3)
+    draw.ellipse([cx-r//3-hr, cy-r//3-hr, cx-r//3+hr, cy-r//3+hr], fill=WHITE)
+
+def pill(draw, x1, y1, x2, y2, fill, outline=None, radius=30, width=3):
+    draw.rounded_rectangle([x1,y1,x2,y2], radius=radius, fill=fill, outline=outline, width=width)
+
+def text_cx(draw, W, y, txt, fnt, color):
+    bb = draw.textbbox((0,0), txt, font=fnt)
+    draw.text(((W-(bb[2]-bb[0]))//2, y), txt, fill=color, font=fnt)
+
+def shadow_cx(draw, W, y, txt, fnt, color, shadow=(0,0,0), off=3):
+    bb = draw.textbbox((0,0), txt, font=fnt)
+    x  = (W-(bb[2]-bb[0]))//2
+    draw.text((x+off, y+off), txt, fill=shadow, font=fnt)
+    draw.text((x, y), txt, fill=color, font=fnt)
+
 
 def generate_set(W, H, suffix):
-    scale = W / 1080  # scale factor relative to phone
+    s = W / 1080  # scale factor
 
-    # ── Screenshot 1: Home ──────────────────────────────────────────────────
-    img = make_gradient(W, H, BG_TOP, BG_BOT)
-    splash = Image.open(os.path.join(ASSETS,'splash.png')).convert('RGB')
-    sw = W; sh = int(W * splash.height / splash.width)
-    splash = splash.resize((sw, sh))
-    img.paste(splash, (0,0))
-    overlay = Image.new('RGB',(W, H//2), BG_TOP)
-    mask = Image.new('L',(W, H//2))
-    md = ImageDraw.Draw(mask)
-    for y in range(H//2): md.line([(0,y),(W,y)], fill=int(220*(y/(H//2))))
-    img.paste(overlay,(0,H//2),mask)
+    def S(n): return int(n * s)
+
+    # ══ Screenshot 1: Home ═══════════════════════════════════════════════════
+    img  = make_gradient_multi(W, H, BG_HOME)
     draw = ImageDraw.Draw(img)
-    add_stars(draw,W,H)
+    add_stars(draw, W, H, int(110*s))
 
-    title_y = int(H*0.51)
-    shadow_text(draw,W, title_y,       "Bubble", int(110*scale), WHITE)
-    shadow_text(draw,W, title_y+int(115*scale), "Kingdom", int(110*scale), GOLD)
-    centered_text(draw,W, title_y+int(240*scale), "✨  Pop • Match • Win  ✨", int(42*scale), (200,200,255))
+    # Side towers
+    TW, TH = S(66), int(H*0.7)
+    BW, BH, GAP = S(14), S(18), S(10)
+    stone = (14,5,26)
+    tower_l = make_gradient(TW, TH, stone, (20,6,58))
+    img.paste(tower_l, (0, BH))
+    tower_r = make_gradient(TW, TH, stone, (20,6,58))
+    img.paste(tower_r, (W-TW, BH))
+    for bx in range(0, TW-BW, BW+GAP):
+        draw.rectangle([bx, 0, bx+BW, BH+S(4)], fill=(14,3,26))
+        draw.rectangle([W-TW+bx, 0, W-TW+bx+BW, BH+S(4)], fill=(14,3,26))
+    draw.rectangle([0, BH+S(4), TW, BH+S(6)], fill=(*GOLD_DIM,))
+    draw.rectangle([W-TW, BH+S(4), W, BH+S(6)], fill=(*GOLD_DIM,))
 
-    py1 = int(H*0.72); py2 = py1+int(110*scale)
-    draw_pill(draw, int(W*0.22),py1, int(W*0.78),py2, fill=(255,180,0), radius=int(50*scale))
-    shadow_text(draw,W, py1+int(18*scale), "🎯  PLAY!", int(68*scale), WHITE)
+    # Logo
+    logo_path = os.path.join(ASSETS, 'kgf-orbito-icon-master.png')
+    try:
+        logo = Image.open(logo_path).convert('RGBA')
+        lw   = int(W*0.80)
+        lh   = int(logo.height * lw / logo.width)
+        logo = logo.resize((lw, lh), Image.LANCZOS)
+        img.paste(logo, ((W-lw)//2, S(90)), logo)
+        logo_bottom = S(90) + lh
+    except:
+        shadow_cx(draw, W, S(120), "Bubble Kingdom", get_font(S(100)), GOLD, shadow=(0,0,0))
+        logo_bottom = S(260)
 
-    ly1 = py2+int(20*scale); ly2 = ly1+int(90*scale)
-    draw_pill(draw, int(W*0.27),ly1, int(W*0.73),ly2, fill=PURPLE, outline=WHITE, radius=int(40*scale))
-    centered_text(draw,W, ly1+int(18*scale), "🗺  Select Level", int(46*scale), WHITE)
+    y = logo_bottom + S(16)
 
-    hx1=int(W*0.06); hx2=int(W*0.94)
-    hy1=ly2+int(30*scale); hy2=hy1+int(260*scale)
-    draw_pill(draw,hx1,hy1,hx2,hy2, fill=(20,20,60), outline=(80,60,120), radius=int(24*scale))
-    centered_text(draw,W, hy1+int(20*scale), "HOW TO PLAY", int(36*scale), GOLD)
-    for i,line in enumerate(["👆 Tap to aim & shoot","💥 Match 3 bubbles to BLAST!","🔥 Chain combos for bonus","⭐ Earn up to 3 stars per level"]):
-        centered_text(draw,W, hy1+int(75*scale)+i*int(44*scale), line, int(32*scale), (220,220,255), bold=False)
+    # Glory card
+    pill(draw, S(80), y, W-S(80), y+S(96), fill=(15,4,32), outline=GOLD, radius=S(20))
+    draw.line([(S(80),y),(W-S(80),y)], fill=(*GOLD,128), width=2)
+    text_cx(draw, W, y+S(14), 'GREATEST GLORY', get_font(S(22), False), (*GOLD,165))
+    shadow_cx(draw, W, y+S(38), '124,800', get_font(S(52)), WHITE, shadow=(0,0,0))
+    y += S(96) + S(18)
+
+    # BATTLE button
+    btn_w = int(W*0.80)
+    bx    = (W-btn_w)//2
+    btn_h = S(100)
+    for row in range(btn_h):
+        t  = row/btn_h
+        r_ = int(RED_HI[0]+(RED_DARK[0]-RED_HI[0])*t)
+        g_ = int(RED_HI[1]+(RED_DARK[1]-RED_HI[1])*t)
+        b_ = int(RED_HI[2]+(RED_DARK[2]-RED_HI[2])*t)
+        draw.line([(bx,y+row),(bx+btn_w,y+row)], fill=(r_,g_,b_))
+    draw.rounded_rectangle([bx,y,bx+btn_w,y+btn_h], radius=S(44), outline=GOLD, width=3)
+    sheen = Image.new('RGBA',(W,H),(0,0,0,0))
+    ImageDraw.Draw(sheen).rounded_rectangle([bx,y,bx+btn_w,y+btn_h//2], radius=S(44), fill=(255,255,255,28))
+    img.paste(sheen,(0,0),sheen)
+    shadow_cx(draw, W, y+S(26), '⚔️   BATTLE!', get_font(S(42)), WHITE, shadow=(0,0,0))
+    y += btn_h + S(20)
+
+    # Three mini cards
+    cw = (int(W*0.88)-S(16))//3
+    cx0 = (W-int(W*0.88))//2
+    mini_data = [('🗺️','KINGDOM MAP','👑 48/96'),('💰','TREASURY','🔥 Streak 7'),('🎁','DAILY REWARD','Claim gift!')]
+    card_h = S(128)
+    for i,(ico,lbl,sub) in enumerate(mini_data):
+        x1=cx0+i*(cw+S(8)); x2=x1+cw
+        pill(draw,x1,y,x2,y+card_h, fill=PURPLE_CARD, outline=(*GOLD,46), radius=S(18))
+        ef=emoji_font(S(28)); eb=draw.textbbox((0,0),ico,font=ef)
+        draw.text(((x1+x2)//2-(eb[2]-eb[0])//2, y+S(14)), ico, font=ef)
+        text_cx(draw, x1+x2, y+S(56), lbl, get_font(S(18)), WHITE)
+        text_cx(draw, x1+x2, y+S(80), sub, get_font(S(16),False), (*GOLD,184))
+    y += card_h + S(20)
+
+    # Battle guide
+    gh = S(168)
+    pill(draw,S(80),y,W-S(80),y+gh, fill=(22,6,52), outline=(*GOLD,56), radius=S(20))
+    draw.line([(S(96),y+S(28)),(W//2-S(90),y+S(28))], fill=(*GOLD,64), width=1)
+    text_cx(draw, W, y+S(18), '✦  BATTLE GUIDE  ✦', get_font(S(22)), GOLD)
+    draw.line([(W//2+S(90),y+S(28)),(W-S(96),y+S(28))], fill=(*GOLD,64), width=1)
+    rows = [('⚔️','Tap to aim & launch gems'),('💎','Match 3 gems to BLAST!'),('🔥','Chain combos for glory'),('👑','Earn up to 3 crowns per battle')]
+    ef2=emoji_font(S(22)); gf=get_font(S(26),False)
+    for ri,(ic,tx) in enumerate(rows):
+        ry=y+S(50)+ri*S(26)
+        draw.text((S(100),ry),ic,font=ef2)
+        draw.text((S(140),ry),tx,fill=(255,218,170,230),font=gf)
+    draw.text((W-S(154),y+S(36)),'🧑‍⚔️',font=emoji_font(S(70)))
+
+    # Top badges
+    pill(draw,S(14),S(42),S(220),S(97), fill=(70,20,5), outline=GOLD, radius=S(28))
+    draw.text((S(26),S(56)),'👑',font=emoji_font(S(22)))
+    draw.text((S(62),S(54)),'48', fill=GOLD, font=get_font(S(22)))
+    draw.text((S(95),S(57)),'/96', fill=(*WHITE,100), font=get_font(S(14)))
+    pill(draw,W-S(220),S(42),W-S(14),S(97), fill=(55,18,0), outline=GOLD, radius=S(28))
+    draw.text((W-S(208),S(56)),'🪙',font=emoji_font(S(20)))
+    draw.text((W-S(168),S(54)),'1,250',fill=GOLD,font=get_font(S(20)))
+
+    # Nav bar
+    nav_bar = make_gradient(W,S(68),(14,5,35),(8,2,20))
+    img.paste(nav_bar,(0,H-S(68)))
+    draw.line([(0,H-S(68)),(W,H-S(68))],fill=(*GOLD_DIM,64),width=1)
+    nav_icons=['🏰','🛡️','⚔️','🏆','⚙️']
+    nf=emoji_font(S(26))
+    for ni,ic in enumerate(nav_icons):
+        ncx=W//5*ni+W//10
+        bb=draw.textbbox((0,0),ic,font=nf)
+        draw.text((ncx-(bb[2]-bb[0])//2,H-S(54)),ic,font=nf,fill=WHITE if ni==0 else (*WHITE,100))
 
     img.save(os.path.join(OUT, f'tablet_{suffix}_1_home.png'))
     print(f"Tablet {suffix} screenshot 1 done")
 
-    # ── Screenshot 2: Gameplay ──────────────────────────────────────────────
-    img = make_gradient(W, H, (5,5,25),(30,8,60))
+    # ══ Screenshot 2: Gameplay ════════════════════════════════════════════════
+    img  = make_gradient(W, H, (5,5,25),(30,8,60))
     draw = ImageDraw.Draw(img)
-    add_stars(draw,W,H,120)
+    add_stars(draw,W,H,int(120*s))
 
-    draw_pill(draw,int(30*scale),int(60*scale),int(W-30*scale),int(160*scale), fill=(20,15,50), outline=PURPLE, radius=int(20*scale))
-    centered_text(draw,W, int(80*scale), "Level 5   •   ⭐ Score: 4,800   •   💥 x3 Combo", int(38*scale), WHITE)
+    pill(draw,S(28),S(56),W-S(28),S(168), fill=(20,15,50), outline=(83,52,131), radius=S(22))
+    text_cx(draw,W,S(76),'BATTLE  5',get_font(S(34),False),WHITE)
+    text_cx(draw,W,S(118),'⭐  Score: 4,800    💥  Combo ×3',get_font(S(30),False),(*GOLD,210))
 
-    cols,rows = 8,7
-    br = int(56*scale)
+    cols,rows2 = 8,7
+    br   = S(56)
     grid_w = cols*br*2
-    ox = (W-grid_w)//2+br
-    oy = int(200*scale)
+    ox   = (W-grid_w)//2+br
+    oy   = S(210)
     random.seed(7)
-    for row in range(rows):
-        ncols = cols if row%2==0 else cols-1
-        extra = 0 if row%2==0 else br
+    for row in range(rows2):
+        ncols=cols if row%2==0 else cols-1
+        extra=0 if row%2==0 else br
         for col in range(ncols):
-            cx = ox+extra+col*br*2
-            cy = oy+row*int(br*1.75)
+            cx=ox+extra+col*br*2
+            cy=oy+row*int(br*1.75)
             draw_bubble(draw,cx,cy,br-4,BUBBLE_COLORS[random.randint(0,7)])
 
-    ax = W//2; ay = H-int(200*scale)
-    for i in range(0,18):
-        y1=ay-i*int(60*scale); y2=y1-int(40*scale)
-        alpha=max(50,255-i*15)
-        draw.line([(ax,y1),(ax,y2)], fill=(alpha,alpha,255), width=int(4*scale))
+    ax=W//2; ay=H-S(240)
+    for i in range(22):
+        y1=ay-i*S(55); y2=y1-S(36)
+        a=max(40,240-i*12)
+        draw.line([(ax,y1),(ax,y2)],fill=(a,a,255),width=S(4))
 
-    cy2 = H-int(220*scale)
-    draw.ellipse([W//2-int(60*scale),cy2-int(60*scale),W//2+int(60*scale),cy2+int(60*scale)], fill=(60,40,100), outline=GOLD, width=int(4*scale))
-    draw.rectangle([W//2-int(18*scale),cy2-int(130*scale),W//2+int(18*scale),cy2-int(60*scale)], fill=(80,60,120), outline=GOLD, width=int(3*scale))
-    draw_bubble(draw, W//2, H-int(100*scale), int(44*scale), BUBBLE_COLORS[2])
-    centered_text(draw,W, H-int(155*scale), "NEXT", int(34*scale), (180,180,255))
+    cy2=H-S(250)
+    draw.ellipse([W//2-S(70),cy2-S(70),W//2+S(70),cy2+S(70)],fill=(60,40,100),outline=GOLD,width=S(4))
+    draw.rectangle([W//2-S(20),cy2-S(210),W//2+S(20),cy2-S(62)],fill=(80,60,120),outline=GOLD,width=S(3))
+    draw_bubble(draw,W//2,cy2,S(44),BUBBLE_COLORS[3])
+    text_cx(draw,W,H-S(176),'NEXT',get_font(S(34),False),(180,180,255))
+    draw_bubble(draw,W//2,H-S(116),S(38),BUBBLE_COLORS[0])
+
+    pill(draw,S(48),H-S(196),S(248),H-S(124), fill=(20,15,50), outline=(83,52,131), radius=S(18))
+    text_cx(draw,S(296),H-S(182),'🎯  18',get_font(S(44)),WHITE)
 
     img.save(os.path.join(OUT, f'tablet_{suffix}_2_gameplay.png'))
     print(f"Tablet {suffix} screenshot 2 done")
 
-    # ── Screenshot 3: Power-ups ─────────────────────────────────────────────
-    img = make_gradient(W, H, (5,5,25),(50,10,80))
+    # ══ Screenshot 3: Power-ups (8 in 2×4) ═══════════════════════════════════
+    img  = make_gradient(W, H, (5,5,25),(50,10,80))
     draw = ImageDraw.Draw(img)
     add_stars(draw,W,H)
 
-    shadow_text(draw,W, int(80*scale), "POWER-UPS", int(90*scale), GOLD)
-    centered_text(draw,W, int(195*scale), "Unleash epic bubble blasters!", int(44*scale), (200,200,255))
+    shadow_cx(draw,W,S(80),'POWER-UPS',get_font(S(90)),GOLD,shadow=(0,0,0))
+    text_cx(draw,W,S(196),'Unleash epic battle weapons!',get_font(S(44),False),(200,200,255))
 
-    powerups = [
-        ("💣","BOMB",      "Destroys nearby bubbles",  (200,50,50)),
-        ("🔥","FIRE",      "Blasts the entire row",    (255,100,20)),
-        ("🚀","ROCKET",    "Clears a full column",     (50,150,255)),
-        ("⚡","LIGHTNING", "Zaps 9 random bubbles",    (255,220,0)),
-        ("🌈","RAINBOW",   "Pops all of one color",    (150,80,220)),
-        ("❄️","FREEZE",    "Stops bubbles cold",       (80,200,240)),
+    powerups=[
+        ('⚔️','SWORD',    'Destroys nearby gems',       (220, 50, 50)),
+        ('🔮','RAINBOW',  'Pops all of one colour',      (150, 80,220)),
+        ('🔥','FIRE',     'Blasts the entire row',       (255,100, 20)),
+        ('⚡','LIGHTNING','Zaps 9 random gems',          (255,220,  0)),
+        ('❄️','FREEZE',   'Stops gems in their tracks',  ( 80,200,240)),
+        ('🏹','ARROW',    'Clears a full column',        ( 50,150,255)),
+        ('☄️','METEOR',   'Wipes out a large area',      (255,120,  0)),
+        ('💫','STAR BURST','Chain-pops all combos',      (220,180,255)),
     ]
-    cell_w = (W-int(80*scale))//2
-    cell_h = int(380*scale)
+
+    cw2  = (W-S(80)-S(20))//2
+    ch2  = S(370)
+    pad  = S(40)
     for i,(emoji,name,desc,color) in enumerate(powerups):
         col=i%2; row=i//2
-        x1=int(40*scale)+col*(cell_w+int(20*scale))
-        y1=int(300*scale)+row*(cell_h+int(20*scale))
-        x2=x1+cell_w; y2=y1+cell_h
-        draw_pill(draw,x1,y1,x2,y2, fill=(15,12,40), outline=color, radius=int(28*scale))
+        x1=pad+col*(cw2+S(20)); y1=S(290)+row*(ch2+S(14))
+        x2=x1+cw2; y2=y1+ch2
+        pill(draw,x1,y1,x2,y2,fill=(15,10,40),outline=color,radius=S(28))
+        sheen=Image.new('RGBA',(W,H),(0,0,0,0))
+        ImageDraw.Draw(sheen).rounded_rectangle([x1,y1,x2,y1+(y2-y1)//3],radius=S(28),fill=(255,255,255,14))
+        img.paste(sheen,(0,0),sheen)
         cx=(x1+x2)//2
-        draw_bubble(draw,cx,y1+int(100*scale),int(66*scale),[color,tuple(max(0,c-50) for c in color)])
-        try:
-            efont=ImageFont.truetype("/System/Library/Fonts/Apple Color Emoji.ttc",int(70*scale))
-        except:
-            efont=get_font(int(50*scale))
-        eb=draw.textbbox((0,0),emoji,font=efont)
-        draw.text((cx-(eb[2]-eb[0])//2,y1+int(55*scale)),emoji,font=efont)
-        nf=get_font(int(40*scale))
-        nb=draw.textbbox((0,0),name,font=nf)
-        draw.text((cx-(nb[2]-nb[0])//2,y1+int(195*scale)),name,fill=color,font=nf)
-        df=get_font(int(28*scale),False)
-        db=draw.textbbox((0,0),desc,font=df)
-        draw.text((cx-(db[2]-db[0])//2,y1+int(255*scale)),desc,fill=(200,200,220),font=df)
+        draw_bubble(draw,cx,y1+S(96),S(66),[color,tuple(max(0,c-50) for c in color)])
+        ef3=emoji_font(S(68)); eb3=draw.textbbox((0,0),emoji,font=ef3)
+        draw.text((cx-(eb3[2]-eb3[0])//2,y1+S(56)),emoji,font=ef3)
+        nf3=get_font(S(44)); nb3=draw.textbbox((0,0),name,font=nf3)
+        draw.text((cx-(nb3[2]-nb3[0])//2,y1+S(182)),name,fill=color,font=nf3)
+        df3=get_font(S(30),False)
+        words=desc.split(); mid=len(words)//2 if len(words)>3 else len(words)
+        lines=[' '.join(words[:mid]),' '.join(words[mid:])]
+        for li,ln in enumerate(lines):
+            if ln:
+                lb=draw.textbbox((0,0),ln,font=df3)
+                draw.text((cx-(lb[2]-lb[0])//2,y1+S(242)+li*S(38)),ln,fill=(200,200,220),font=df3)
 
     img.save(os.path.join(OUT, f'tablet_{suffix}_3_powerups.png'))
     print(f"Tablet {suffix} screenshot 3 done")
 
-    # ── Screenshot 4: Worlds ────────────────────────────────────────────────
-    img = make_gradient(W, H, BG_TOP,(20,5,50))
+    # ══ Screenshot 4: Kingdom Map ═════════════════════════════════════════════
+    img  = make_gradient_multi(W, H, BG_LEVEL)
     draw = ImageDraw.Draw(img)
     add_stars(draw,W,H)
 
-    shadow_text(draw,W, int(70*scale), "4 WORLDS", int(90*scale), GOLD)
-    centered_text(draw,W, int(185*scale), "32 levels of bubble adventure!", int(44*scale), (200,200,255))
+    # Header
+    pill(draw,0,0,W,S(140),fill=(8,3,20),radius=0)
+    draw.line([(0,S(140)),(W,S(140))],fill=(*GOLD_DIM,80),width=1)
+    text_cx(draw,W,S(56),'🗺️  KINGDOM MAP',get_font(S(44)),GOLD)
+    draw.rectangle([(W//2-S(60),S(106)),(W//2+S(60),S(108))],fill=(*GOLD_DIM,90))
 
-    worlds=[
-        ("🌟","World 1","Sunny Pop","Easy",  GREEN),
-        ("🌿","World 2","Neon Garden","Medium",CYAN),
-        ("💎","World 3","Crystal Rush","Hard",ORANGE),
-        ("🔥","World 4","Expert Orbit","Expert",RED),
-    ]
-    wh = int(360*scale)
-    for i,(emoji,wname,wlabel,diff,color) in enumerate(worlds):
-        y1=int(280*scale)+i*(wh+int(20*scale)); y2=y1+wh
-        draw_pill(draw,int(40*scale),y1,W-int(40*scale),y2, fill=(12,10,35), outline=color, radius=int(28*scale))
-        try:
-            efont=ImageFont.truetype("/System/Library/Fonts/Apple Color Emoji.ttc",int(80*scale))
-        except:
-            efont=get_font(int(60*scale))
-        draw.text((int(70*scale),y1+int(25*scale)),emoji,font=efont)
-        bf=get_font(int(50*scale)); sf=get_font(int(34*scale),False)
-        draw.text((int(200*scale),y1+int(25*scale)),wname,fill=color,font=bf)
-        draw.text((int(200*scale),y1+int(88*scale)),wlabel,fill=WHITE,font=bf)
-        draw_pill(draw,int(200*scale),y1+int(150*scale),int(400*scale),y1+int(210*scale),fill=color,radius=int(14*scale))
-        db=draw.textbbox((0,0),diff,font=sf)
-        draw.text((int(300*scale)-(db[2]-db[0])//2,y1+int(157*scale)),diff,fill=WHITE,font=sf)
-        dr=int(22*scale)
-        for j in range(8):
-            dx=int(80*scale)+j*int(115*scale); dy=y1+int(278*scale)
-            draw.ellipse([dx-dr,dy-dr,dx+dr,dy+dr],fill=color,outline=color,width=2)
-            nf=get_font(int(22*scale)); nb=draw.textbbox((0,0),str(j+1),font=nf)
-            draw.text((dx-(nb[2]-nb[0])//2,dy-int(12*scale)),str(j+1),fill=WHITE,font=nf)
+    # Royal Glory banner
+    bt,bh2=S(156),S(136)
+    banner=make_gradient(W-S(80),bh2,(61,10,0),(107,24,0))
+    img.paste(banner,(S(40),bt))
+    draw.rounded_rectangle([S(40),bt,W-S(40),bt+bh2],radius=S(20),outline=(*GOLD,115),width=2)
+    draw.line([(S(40),bt),(W-S(40),bt)],fill=(*GOLD,128),width=2)
+    draw.text((S(62),bt+S(18)),'👑',font=emoji_font(S(32)))
+    draw.text((W-S(110),bt+S(18)),'👑',font=emoji_font(S(32)))
+    text_cx(draw,W,bt+S(14),'ROYAL GLORY',get_font(S(24),False),(*GOLD,178))
+    text_cx(draw,W,bt+S(42),'48',get_font(S(52)),GOLD)
+    text_cx(draw,W+S(40),bt+S(54),'/96',get_font(S(28),False),(*WHITE,115))
+    bx,bwy=S(80),bt+S(102)
+    bbar=W-S(160)
+    draw.rounded_rectangle([bx,bwy,bx+bbar,bwy+S(12)],radius=S(6),fill=(*WHITE,20))
+    draw.rounded_rectangle([bx,bwy,bx+bbar//2,bwy+S(12)],radius=S(6),fill=GOLD)
+    text_cx(draw,W,bt+S(118),'⚔️  48 crowns left to claim',get_font(S(26),False),(255,220,150,165))
+
+    # Worlds
+    yw=bt+bh2+S(22)
+    for wi,world in enumerate(WORLDS):
+        wc0,wc1=world['colors']
+        # World header
+        hbar=make_gradient(W-S(80),S(68),wc0,wc1)
+        img.paste(hbar,(S(40),yw))
+        draw.rounded_rectangle([S(40),yw,W-S(40),yw+S(68)],radius=S(14),outline=(*GOLD,52),width=1)
+        draw.ellipse([S(56),yw+S(12),S(100),yw+S(56)],fill=(0,0,0,90))
+        draw.text((S(59),yw+S(13)),WORLD_ICONS[wi],font=emoji_font(S(32)))
+        draw.text((S(114),yw+S(10)),world['name'],fill=WHITE,font=get_font(S(32)))
+        draw.text((S(114),yw+S(40)),f"{world['label']}  ·  Battles {world['range'][0]}–{world['range'][1]}",fill=(255,220,150,178),font=get_font(S(24),False))
+        pill(draw,W-S(160),yw+S(12),W-S(48),yw+S(56),fill=(0,0,0,102),outline=(*GOLD,76),radius=S(14))
+        text_cx(draw,W-S(96),yw+S(20),'👑 0/24',get_font(S(24),False),GOLD)
+        yw+=S(70)
+
+        # Level cards
+        cw3=(W-S(80)-S(24))//2
+        for li in range(4):
+            lnum=world['range'][0]+li
+            col=li%2; lrow=li//2
+            cx3=S(40)+col*(cw3+S(24))
+            cy3=yw+lrow*(int(cw3*0.65)+S(14))
+            ch3=int(cw3*0.65)
+            emoji_l=['⚔️','🛡️','🏰','🐉','💎','🏹','🔮','⚜️'][lnum%8]
+            unlocked=li<2
+            if unlocked:
+                cc=make_gradient(cw3,ch3,wc0,wc1)
+                img.paste(cc,(cx3,cy3))
+                draw.rounded_rectangle([cx3,cy3,cx3+cw3,cy3+ch3],radius=S(16),outline=(*GOLD,76),width=1)
+                draw.text((cx3+S(14),cy3+S(10)),emoji_l,font=emoji_font(S(28)))
+                draw.text((cx3+cw3-S(50),cy3+S(10)),str(lnum),fill=WHITE,font=get_font(S(28)))
+                cf2=emoji_font(S(14))
+                for ci in range(3):
+                    crow='👑' if ci==0 else '♛'
+                    draw.text((cx3+S(14)+ci*S(20),cy3+ch3-S(28)),crow,font=cf2,fill=(*GOLD,255) if ci==0 else (*WHITE,50))
+                draw.text((cx3+cw3//2-S(40),cy3+ch3-S(24)),'CONQUERED',fill=GOLD,font=get_font(S(14)))
+            else:
+                draw.rounded_rectangle([cx3,cy3,cx3+cw3,cy3+ch3],radius=S(16),fill=(26,13,26),outline=(*WHITE,25),width=1)
+                text_cx(draw,cx3+cw3,cy3+ch3//2-S(20),'⛓️',emoji_font(S(26)),WHITE)
+                text_cx(draw,cx3+cw3,cy3+ch3//2+S(8),'LOCKED',get_font(S(18)),(255,255,255,76))
+
+        yw+=int((cw3*0.65+S(14))*2)+S(14)
 
     img.save(os.path.join(OUT, f'tablet_{suffix}_4_worlds.png'))
     print(f"Tablet {suffix} screenshot 4 done")
 
-# 7-inch tablet: 1200x1920
+
+# 7-inch tablet: 1200×1920
 generate_set(1200, 1920, '7inch')
 
-# 10-inch tablet: 1600x2560
+# 10-inch tablet: 1600×2560
 generate_set(1600, 2560, '10inch')
 
 print("\nAll tablet screenshots done!")
