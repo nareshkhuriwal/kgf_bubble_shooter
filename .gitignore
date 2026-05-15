@@ -1,20 +1,13 @@
-node_modules
+node_modules/
+android/
 
 # Build output
-android/app/build/
-android/build/
 .expo/
 dist/
-
-# Android signing secrets
-android/app/*.jks
-android/app/*.keystore
-*.keystore
 
 # Local machine config
 local.properties
 *.log
-node_modules/
 *.lock
 *.env
 *.env.*
@@ -22,4 +15,3 @@ node_modules/
 .vscode/
 .DS_Store
 *.iml
-android/
