@@ -13,6 +13,8 @@ import {
   CANNON_X,
   CANNON_Y,
   SWAPS_PER_LEVEL,
+  SHOTS_PER_DROP,
+  DANGER_Y,
   calcStars,
 } from '../constants/gameConfig';
 import {
@@ -23,6 +25,7 @@ import {
   randomPlayBubble,
   getColorsInGrid,
   countBubbles,
+  dropGrid,
 } from '../utils/gridUtils';
 import {
   stepProjectile,
@@ -73,6 +76,7 @@ function buildInitialState(level: number, highScore: number): GameState {
     mode: 'classic',
     freezeTicks: 0,
     swapsLeft: SWAPS_PER_LEVEL,
+    shotsSinceDrop: 0,
   };
 }
 
@@ -83,7 +87,8 @@ type EngineAction =
   | { type: 'RESET' }
   | { type: 'NEXT_LEVEL' }
   | { type: 'GO_TO_LEVEL'; level: number }
-  | { type: 'SWAP_BUBBLE' };
+  | { type: 'SWAP_BUBBLE' }
+  | { type: 'CLEAR_PROJECTILE' };
 
 function gameReducer(state: GameState, action: EngineAction): GameState {
   switch (action.type) {
@@ -99,13 +104,30 @@ function gameReducer(state: GameState, action: EngineAction): GameState {
       const unit = angleToUnitVector(state.cannonAngle);
       const muzzleOffset = CANNON_LENGTH + BUBBLE_RADIUS * 0.35;
       const config = getLevelConfig(state.level);
-      const colorsInGrid = getColorsInGrid(state.grid);
+
+      // Ceiling drop: every SHOTS_PER_DROP shots, shift grid down one row
+      const newShotsSinceDrop = state.shotsSinceDrop + 1;
+      const shouldDrop = newShotsSinceDrop >= SHOTS_PER_DROP;
+      let droppedGrid = state.grid;
+      if (shouldDrop) {
+        const liveColors = getColorsInGrid(state.grid);
+        const dropColors = liveColors.length > 0 ? liveColors : config.colors;
+        droppedGrid = dropGrid(state.grid, dropColors, config.cols);
+      }
+
+      // Check if any bubble now crosses the danger line (game over)
+      const ceilingGameOver = droppedGrid.some(row =>
+        row.some(b => b !== null && b.y + BUBBLE_RADIUS >= DANGER_Y)
+      );
+
+      const colorsInGrid = getColorsInGrid(droppedGrid);
       const playableColors = colorsInGrid.length > 0 ? colorsInGrid : config.colors;
-      // Shift queue: next = queue[0], queue = [queue[1], new]
       const [upcomingNext, ...rest] = state.bubbleQueue;
       const newQueued = randomPlayBubble(playableColors, config.powerUpRate ?? 0);
+
       return {
         ...state,
+        grid: droppedGrid,
         lastPoppedIds: [],
         lastFallingIds: [],
         projectile: {
@@ -122,19 +144,19 @@ function gameReducer(state: GameState, action: EngineAction): GameState {
         nextColor: (upcomingNext ?? state.nextBubble).color,
         bubbleQueue: [...rest, newQueued],
         shotsLeft: state.shotsLeft - 1,
+        shotsSinceDrop: shouldDrop ? 0 : newShotsSinceDrop,
+        isGameOver: ceilingGameOver,
       };
     }
 
     case 'SWAP_BUBBLE': {
-      if (state.swapsLeft <= 0 || state.projectile?.isMoving) return state;
-      // Swap current nextBubble with the first bubble in queue
+      if (state.projectile?.isMoving) return state;
       const [first, ...remaining] = state.bubbleQueue;
       return {
         ...state,
         nextBubble: first,
         nextColor: first.color,
         bubbleQueue: [state.nextBubble, ...remaining],
-        swapsLeft: state.swapsLeft - 1,
       };
     }
 
@@ -148,7 +170,7 @@ function gameReducer(state: GameState, action: EngineAction): GameState {
         return {
           ...state,
           projectile: { ...moved, isMoving: false },
-          isGameOver: state.shotsLeft === 0,
+          isGameOver: state.isGameOver || state.shotsLeft === 0,
           lastPoppedIds: [],
           lastFallingIds: [],
         };
@@ -174,7 +196,13 @@ function gameReducer(state: GameState, action: EngineAction): GameState {
         col < 0 || col >= (state.grid[row]?.length ?? 0) ||
         state.grid[row][col] !== null  // already occupied — skip
       ) {
-        return { ...state, projectile: { ...moved, isMoving: false }, lastPoppedIds: [], lastFallingIds: [] };
+        return {
+          ...state,
+          projectile: { ...moved, isMoving: false },
+          isGameOver: state.isGameOver || state.shotsLeft === 0,
+          lastPoppedIds: [],
+          lastFallingIds: [],
+        };
       }
 
       const pos = getBubblePosition(row, col);
@@ -236,8 +264,19 @@ function gameReducer(state: GameState, action: EngineAction): GameState {
       const shotsBonus = isLevelComplete ? state.shotsLeft * SHOT_BONUS : 0;
       const newScore = state.score + scoreGain + shotsBonus;
       const starsEarned = isLevelComplete ? calcStars(newScore, state.level) : 0;
-      const isGameOver = !isLevelComplete && state.shotsLeft === 0 && totalBubbles > 0;
+      // Preserve ceiling game-over that was set during SHOOT (ceiling drop), or detect normal game over
+      const isGameOver = !isLevelComplete && (state.isGameOver || (state.shotsLeft === 0 && totalBubbles > 0));
       const coinsEarned = isLevelComplete ? starsEarned * 25 + Math.floor(newScore / 1000) : state.coinsEarned;
+
+      // Sanitize queue: replace any color no longer present in the grid
+      const liveColors = getColorsInGrid(newGrid);
+      const fallbackColors = liveColors.length > 0 ? liveColors : getLevelConfig(state.level).colors;
+      const sanitize = (b: typeof state.nextBubble) =>
+        liveColors.length === 0 || liveColors.includes(b.color)
+          ? b
+          : randomPlayBubble(fallbackColors, getLevelConfig(state.level).powerUpRate ?? 0);
+      const sanitizedNext  = sanitize(state.nextBubble);
+      const sanitizedQueue = state.bubbleQueue.map(sanitize);
 
       return {
         ...state,
@@ -254,8 +293,14 @@ function gameReducer(state: GameState, action: EngineAction): GameState {
         bubblesRemaining: totalBubbles,
         coinsEarned,
         freezeTicks: Math.max(0, state.freezeTicks - 1) + (powerUpResult?.freezeTicks ?? 0),
+        nextBubble: sanitizedNext,
+        nextColor: sanitizedNext.color,
+        bubbleQueue: sanitizedQueue,
       };
     }
+
+    case 'CLEAR_PROJECTILE':
+      return { ...state, projectile: null };
 
     case 'RESET':
       return buildInitialState(state.level, state.highScore);
@@ -292,25 +337,38 @@ export function useGameEngine(startLevel = 1, initialHighScore = 0) {
     rafRef.current = requestAnimationFrame(tick);
   }, []);
 
+  const startLoop = useCallback(() => {
+    if (running.current) return;
+    running.current = true;
+    lastTimeRef.current = performance.now();
+    rafRef.current = requestAnimationFrame(tick);
+  }, [tick]);
+
+  const stopLoop = useCallback(() => {
+    running.current = false;
+    cancelAnimationFrame(rafRef.current);
+  }, []);
+
+  // Stop loop when projectile is no longer moving (landing or off-screen)
   useEffect(() => {
-    if (state.projectile?.isMoving && !running.current) {
-      running.current = true;
-      lastTimeRef.current = performance.now();
-      rafRef.current = requestAnimationFrame(tick);
-    } else if (!state.projectile?.isMoving && running.current) {
-      running.current = false;
-      cancelAnimationFrame(rafRef.current);
+    if (!state.projectile?.isMoving && running.current) {
+      stopLoop();
     }
-  }, [state.projectile?.isMoving, tick]);
+  }, [state.projectile?.isMoving, stopLoop]);
 
-  useEffect(() => () => { running.current = false; cancelAnimationFrame(rafRef.current); }, []);
+  useEffect(() => () => { stopLoop(); }, [stopLoop]);
 
-  const shoot      = useCallback(() => dispatch({ type: 'SHOOT' }), []);
-  const aimAt      = useCallback((x: number, y: number) => dispatch({ type: 'AIM_AT', x, y }), []);
-  const reset      = useCallback(() => dispatch({ type: 'RESET' }), []);
-  const nextLevel  = useCallback(() => dispatch({ type: 'NEXT_LEVEL' }), []);
-  const goToLevel  = useCallback((level: number) => dispatch({ type: 'GO_TO_LEVEL', level }), []);
-  const swapBubble = useCallback(() => dispatch({ type: 'SWAP_BUBBLE' }), []);
+  const shoot = useCallback(() => {
+    dispatch({ type: 'SHOOT' });
+    startLoop();
+  }, [startLoop]);
 
-  return { state, shoot, aimAt, reset, nextLevel, goToLevel, swapBubble };
+  const aimAt          = useCallback((x: number, y: number) => dispatch({ type: 'AIM_AT', x, y }), []);
+  const reset          = useCallback(() => dispatch({ type: 'RESET' }), []);
+  const nextLevel      = useCallback(() => dispatch({ type: 'NEXT_LEVEL' }), []);
+  const goToLevel      = useCallback((level: number) => dispatch({ type: 'GO_TO_LEVEL', level }), []);
+  const swapBubble     = useCallback(() => dispatch({ type: 'SWAP_BUBBLE' }), []);
+  const clearProjectile = useCallback(() => dispatch({ type: 'CLEAR_PROJECTILE' }), []);
+
+  return { state, shoot, aimAt, reset, nextLevel, goToLevel, swapBubble, clearProjectile };
 }

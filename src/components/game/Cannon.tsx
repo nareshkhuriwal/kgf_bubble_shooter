@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, Text, StyleSheet } from 'react-native';
+import { Animated, Text, StyleSheet, TouchableOpacity, View } from 'react-native';
 import Svg, { G, Rect, Circle, Defs, LinearGradient, Stop, Ellipse, Line } from 'react-native-svg';
 import {
   CANNON_X,
@@ -28,8 +28,12 @@ interface CannonProps {
   angle: number;
   currentColor: BubbleColor;
   currentPowerUp?: PowerUpKind;
+  nextColor?: BubbleColor;
+  nextPowerUp?: PowerUpKind;
   isAiming?: boolean;
-  firedAt?: number;
+  firedAt?: number; // timestamp — changes on each shot to trigger recoil
+  onSwap?: () => void;
+  swapDisabled?: boolean;
 }
 
 // Stone pedestal geometry
@@ -43,7 +47,8 @@ const STEP_X      = CANNON_X - STEP_W / 2;
 const STEP_Y      = PEDESTAL_Y + PEDESTAL_H;
 
 export const Cannon: React.FC<CannonProps> = ({
-  angle, currentColor, currentPowerUp, isAiming = false, firedAt,
+  angle, currentColor, currentPowerUp, nextColor, nextPowerUp,
+  isAiming = false, firedAt, onSwap, swapDisabled = false,
 }) => {
   const recoilAnim = useRef(new Animated.Value(0)).current;
 
@@ -60,11 +65,32 @@ export const Cannon: React.FC<CannonProps> = ({
 
   const barrelW  = BUBBLE_RADIUS * 0.66;
   const bubbleR  = BUBBLE_RADIUS - 2;
+  const nextR    = BUBBLE_RADIUS - 6;
   const [cc1, cc2] = COLOR_GRADIENTS[currentColor];
+  const [nc1, nc2] = nextColor ? COLOR_GRADIENTS[nextColor] : ['#555', '#333'];
 
   const currFontSize = bubbleR * 1.1;
+  const nextFontSize = nextR * 1.1;
+
+  // Swap tray geometry: [current] [swap ⇄] [next] evenly spaced, centred on CANNON_X
+  const swapBtnSize  = BUBBLE_RADIUS * 1.4;
+  const trayPad      = 10;
+  const trayItemGap  = 8;
+  const trayInnerW   = bubbleR * 2 + trayItemGap + swapBtnSize + trayItemGap + nextR * 2;
+  const trayW        = trayInnerW + trayPad * 2;
+  const trayH        = Math.max(bubbleR, nextR) * 2 + 20;
+  const trayX        = CANNON_X - trayW / 2;
+  const trayY        = CANNON_Y + BUBBLE_RADIUS * 1.5 + 10;
+  const trayMidY     = trayY + trayH / 2;
+
+  // Element centres inside tray
+  const currBX  = trayX + trayPad + bubbleR;           // current bubble (left)
+  const swapIconX = currBX + bubbleR + trayItemGap + swapBtnSize / 2;  // swap (middle)
+  const nextBX  = swapIconX + swapBtnSize / 2 + trayItemGap + nextR;   // next bubble (right)
+  const swapIconY = trayMidY;
 
   return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
     <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ translateY: recoilY }] }]} pointerEvents="none">
       <Svg width={SCREEN_WIDTH} height={SCREEN_HEIGHT} style={StyleSheet.absoluteFill}>
         <Defs>
@@ -91,10 +117,15 @@ export const Cannon: React.FC<CannonProps> = ({
             <Stop offset="0%"   stopColor="#2a1200" />
             <Stop offset="100%" stopColor="#120800" />
           </LinearGradient>
-          {/* Carriage wood */}
-          <LinearGradient id="cn_carriage" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0%"   stopColor="#5a2d0a" />
-            <Stop offset="100%" stopColor="#3d1a00" />
+          {/* Next bubble */}
+          <LinearGradient id="cn_next" x1="0" y1="0" x2="1" y2="1">
+            <Stop offset="0%"   stopColor={nc1} />
+            <Stop offset="100%" stopColor={nc2} />
+          </LinearGradient>
+          {/* Swap tray bg */}
+          <LinearGradient id="cn_tray" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0%"   stopColor="#1a0800" stopOpacity="0.92" />
+            <Stop offset="100%" stopColor="#0a0400" stopOpacity="0.96" />
           </LinearGradient>
         </Defs>
 
@@ -134,99 +165,7 @@ export const Cannon: React.FC<CannonProps> = ({
           stroke="rgba(255,180,60,0.1)" strokeWidth="0.8"
         />
 
-        {/* ══ Carriage wheel legs ══ */}
-        {(() => {
-          const legSpread  = BUBBLE_RADIUS * 1.32;
-          const legBottomY = PEDESTAL_Y - 2;
-          const legTopY    = CANNON_Y + 6;
-          const legW       = Math.max(5, BUBBLE_RADIUS * 0.38);
-          const wheelR     = BUBBLE_RADIUS * 0.46;
-          const spokeR     = wheelR * 0.7;
-          const lx         = CANNON_X - legSpread;
-          const rx         = CANNON_X + legSpread;
-
-          return (
-            <>
-              {/* Carriage body connecting bar */}
-              <Rect
-                x={lx - legW / 2} y={legTopY - legW / 2}
-                width={rx - lx + legW} height={legW}
-                rx={legW / 2}
-                fill="url(#cn_carriage)"
-              />
-
-              {/* Left strut */}
-              <Line
-                x1={CANNON_X} y1={legTopY}
-                x2={lx}       y2={legBottomY}
-                stroke="#4a2008" strokeWidth={legW}
-                strokeLinecap="round"
-              />
-              {/* Right strut */}
-              <Line
-                x1={CANNON_X} y1={legTopY}
-                x2={rx}       y2={legBottomY}
-                stroke="#4a2008" strokeWidth={legW}
-                strokeLinecap="round"
-              />
-              {/* Axle */}
-              <Line
-                x1={lx} y1={legBottomY}
-                x2={rx} y2={legBottomY}
-                stroke="#2e1200" strokeWidth={legW * 0.68}
-                strokeLinecap="round"
-              />
-              {/* Axle gold highlight */}
-              <Line
-                x1={lx + wheelR} y1={legBottomY}
-                x2={rx - wheelR} y2={legBottomY}
-                stroke="#B8860B" strokeWidth={1.8}
-                strokeLinecap="round" opacity="0.65"
-              />
-
-              {/* Left wheel */}
-              <Circle cx={lx} cy={legBottomY} r={wheelR} fill="#2e1200" />
-              <Circle cx={lx} cy={legBottomY} r={wheelR} fill="none" stroke="#6b2e00" strokeWidth={legW * 0.5} />
-              {[0, 45, 90, 135].map(deg => {
-                const rad = (deg * Math.PI) / 180;
-                return (
-                  <Line key={deg}
-                    x1={lx + Math.cos(rad) * spokeR} y1={legBottomY + Math.sin(rad) * spokeR}
-                    x2={lx - Math.cos(rad) * spokeR} y2={legBottomY - Math.sin(rad) * spokeR}
-                    stroke="#4a2008" strokeWidth={1.5}
-                  />
-                );
-              })}
-              <Circle cx={lx} cy={legBottomY} r={wheelR * 0.22} fill="#B8860B" />
-              <Circle cx={lx} cy={legBottomY} r={wheelR} fill="none" stroke="#B8860B" strokeWidth={1.5} opacity="0.65" />
-
-              {/* Right wheel */}
-              <Circle cx={rx} cy={legBottomY} r={wheelR} fill="#2e1200" />
-              <Circle cx={rx} cy={legBottomY} r={wheelR} fill="none" stroke="#6b2e00" strokeWidth={legW * 0.5} />
-              {[0, 45, 90, 135].map(deg => {
-                const rad = (deg * Math.PI) / 180;
-                return (
-                  <Line key={deg}
-                    x1={rx + Math.cos(rad) * spokeR} y1={legBottomY + Math.sin(rad) * spokeR}
-                    x2={rx - Math.cos(rad) * spokeR} y2={legBottomY - Math.sin(rad) * spokeR}
-                    stroke="#4a2008" strokeWidth={1.5}
-                  />
-                );
-              })}
-              <Circle cx={rx} cy={legBottomY} r={wheelR * 0.22} fill="#B8860B" />
-              <Circle cx={rx} cy={legBottomY} r={wheelR} fill="none" stroke="#B8860B" strokeWidth={1.5} opacity="0.65" />
-
-              {/* Pivot block at leg junction */}
-              <Rect
-                x={CANNON_X - legW * 1.1}
-                y={legTopY - legW * 0.55}
-                width={legW * 2.2} height={legW}
-                rx={legW / 2}
-                fill="#6b3210"
-              />
-            </>
-          );
-        })()}
+        {/* Carriage wheels removed — cannon now sits cleanly on stone pedestal */}
 
         {/* ══ Rotating barrel ══ */}
         <G origin={`${CANNON_X}, ${CANNON_Y}`} rotation={angle - 90}>
@@ -283,7 +222,7 @@ export const Cannon: React.FC<CannonProps> = ({
           )}
         </G>
 
-        {/* ══ Loaded bubble ══ */}
+        {/* ══ Loaded bubble on cannon ══ */}
         {isAiming && (
           <Circle
             cx={CANNON_X} cy={CANNON_Y}
@@ -291,23 +230,62 @@ export const Cannon: React.FC<CannonProps> = ({
             fill="#FFD700" opacity="0.12"
           />
         )}
-        {/* Bubble body */}
         <Circle cx={CANNON_X} cy={CANNON_Y} r={bubbleR} fill="url(#cn_curr)" />
-        {/* Shine highlight */}
         <Circle
           cx={CANNON_X - bubbleR * 0.3}
           cy={CANNON_Y - bubbleR * 0.3}
           r={bubbleR * 0.22}
           fill="rgba(255,255,255,0.6)"
         />
-        {/* Gold border */}
         <Circle
           cx={CANNON_X} cy={CANNON_Y} r={bubbleR}
           fill="none" stroke="rgba(255,215,0,0.4)" strokeWidth="1.5"
         />
+
+        {/* ══ Swap tray: [current] [⇄] [next] ══ */}
+        {/* Tray background */}
+        <Rect
+          x={trayX} y={trayY}
+          width={trayW} height={trayH}
+          rx={trayH / 2}
+          fill="url(#cn_tray)"
+        />
+        <Rect
+          x={trayX} y={trayY}
+          width={trayW} height={trayH}
+          rx={trayH / 2}
+          fill="none"
+          stroke="#B8860B" strokeWidth="1.5" opacity="0.55"
+        />
+
+        {/* Current bubble in tray (left slot) */}
+        <Circle cx={currBX} cy={trayMidY} r={bubbleR} fill="url(#cn_curr)" />
+        <Circle
+          cx={currBX - bubbleR * 0.3} cy={trayMidY - bubbleR * 0.3}
+          r={bubbleR * 0.22} fill="rgba(255,255,255,0.6)"
+        />
+        <Circle
+          cx={currBX} cy={trayMidY} r={bubbleR}
+          fill="none" stroke="rgba(255,215,0,0.4)" strokeWidth="1.5"
+        />
+
+        {/* Next bubble in tray (right slot) */}
+        {nextColor && (
+          <>
+            <Circle cx={nextBX} cy={trayMidY} r={nextR} fill="url(#cn_next)" />
+            <Circle
+              cx={nextBX - nextR * 0.3} cy={trayMidY - nextR * 0.3}
+              r={nextR * 0.22} fill="rgba(255,255,255,0.55)"
+            />
+            <Circle
+              cx={nextBX} cy={trayMidY} r={nextR}
+              fill="none" stroke="rgba(255,215,0,0.35)" strokeWidth="1.2"
+            />
+          </>
+        )}
       </Svg>
 
-      {/* Gem / power-up emoji on loaded bubble */}
+      {/* Loaded bubble emoji (on cannon) */}
       <Text
         style={[
           styles.face,
@@ -321,7 +299,68 @@ export const Cannon: React.FC<CannonProps> = ({
       >
         {currentPowerUp ? POWER_UP_EMOJI[currentPowerUp] : COLOR_FACE[currentColor]}
       </Text>
+
+      {/* Current bubble emoji in tray (left) */}
+      <Text
+        style={[
+          styles.face,
+          {
+            fontSize: currFontSize,
+            left:  currBX - currFontSize * 0.6,
+            top:   trayMidY - currFontSize * 0.6,
+            width: currFontSize * 1.2,
+          },
+        ]}
+      >
+        {currentPowerUp ? POWER_UP_EMOJI[currentPowerUp] : COLOR_FACE[currentColor]}
+      </Text>
+
+      {/* Next bubble emoji in tray (right) */}
+      {nextColor && (
+        <Text
+          style={[
+            styles.face,
+            {
+              fontSize: nextFontSize,
+              left:  nextBX - nextFontSize * 0.6,
+              top:   trayMidY - nextFontSize * 0.6,
+              width: nextFontSize * 1.2,
+            },
+          ]}
+        >
+          {nextPowerUp ? POWER_UP_EMOJI[nextPowerUp] : COLOR_FACE[nextColor]}
+        </Text>
+      )}
+
+      {/* NEXT label — above the right bubble, inside tray */}
+      {nextColor && (
+        <Text style={[styles.nextLabel, { left: nextBX - nextR - 2, top: trayY + 3, width: nextR * 2 + 4 }]}>
+          NEXT
+        </Text>
+      )}
     </Animated.View>
+
+    {/* Swap button (centre of tray) — outside pointerEvents="none" layer so taps register */}
+    {nextColor && (
+      <TouchableOpacity
+        onPress={swapDisabled ? undefined : onSwap}
+        activeOpacity={swapDisabled ? 1 : 0.7}
+        style={[
+          styles.swapBtn,
+          swapDisabled && styles.swapBtnDisabled,
+          {
+            left:         swapIconX - swapBtnSize / 2,
+            top:          swapIconY - swapBtnSize / 2,
+            width:        swapBtnSize,
+            height:       swapBtnSize,
+            borderRadius: swapBtnSize / 2,
+          },
+        ]}
+      >
+        <Text style={[styles.swapIcon, swapDisabled && styles.swapIconDisabled]}>⇄</Text>
+      </TouchableOpacity>
+    )}
+    </View>
   );
 };
 
@@ -329,5 +368,38 @@ const styles = StyleSheet.create({
   face: {
     position: 'absolute',
     textAlign: 'center',
+  },
+  nextLabel: {
+    position: 'absolute',
+    textAlign: 'center',
+    color: 'rgba(255,215,0,0.55)',
+    fontSize: 7,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+  swapBtn: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(60,15,5,0.88)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,215,0,0.55)',
+    shadowColor: '#FFD700',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+  },
+  swapBtnDisabled: {
+    backgroundColor: 'rgba(20,10,5,0.6)',
+    borderColor: 'rgba(120,90,0,0.25)',
+    shadowOpacity: 0,
+  },
+  swapIcon: {
+    color: '#FFD700',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  swapIconDisabled: {
+    color: 'rgba(120,90,0,0.35)',
   },
 });

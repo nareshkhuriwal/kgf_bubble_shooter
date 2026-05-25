@@ -75,6 +75,7 @@ export interface GameState {
   timeLeft?: number;
   freezeTicks: number;
   swapsLeft: number;         // bubble-swap uses remaining this level
+  shotsSinceDrop: number;    // ceiling drops after every SHOTS_PER_DROP shots
 }
 
 export interface LevelConfig {

@@ -69,11 +69,20 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   onHome,
   onLevelComplete,
 }) => {
-  const { state, shoot, aimAt, reset, nextLevel, swapBubble } = useGameEngine(startLevel, initialHighScore);
+  const { state, shoot, aimAt, reset, nextLevel, swapBubble, clearProjectile } = useGameEngine(startLevel, initialHighScore);
 
   const haptics = useHaptics();
   const audio   = useGameAudio();
   const { popups, addPopup, removePopup } = useScorePopups();
+
+  // Play battle-start fanfare once on mount
+  useEffect(() => { audio.play('levelStart'); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Swap with sound
+  const handleSwap = useCallback(() => {
+    audio.play('swap');
+    swapBubble();
+  }, [audio, swapBubble]);
 
   const [isAiming,   setIsAiming]   = useState(false);
   const [isPaused,   setIsPaused]   = useState(false);
@@ -86,7 +95,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const shakeY = useRef(new Animated.Value(0)).current;
 
   // ── Cannon recoil trigger ───────────────────────────────────────────────────
-  const [firedAt, setFiredAt] = useState<number | undefined>(undefined);
+  const [firedAt, setFiredAt] = useState(0);
 
   // ── Impact flash ────────────────────────────────────────────────────────────
   const impactAnim    = useRef(new Animated.Value(0)).current;
@@ -100,13 +109,17 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   const [dangerActive, setDangerActive] = useState(false);
 
   // ── Projectile trail (ref mutation — no state, avoids double re-renders) ───
-  const trailRef = useRef<Array<{ x: number; y: number; op: number }>>([]);
+  const trailRef = useRef<Array<{ x: number; y: number }>>([]);
+  const mountedRef = useRef(true);
 
   // Refs to track values across renders without triggering re-renders
   const prevScoreRef       = useRef(state.score);
   const prevGridRef        = useRef(state.grid);
   const reportedRef        = useRef(false);
   const prevMovingRef      = useRef(false);
+
+  // Unmount guard for async animation callbacks
+  useEffect(() => () => { mountedRef.current = false; }, []);
 
   // Keep prevGridRef in sync on every grid change
   useEffect(() => {
@@ -124,7 +137,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     }
 
     if (prevMovingRef.current && !isMoving && state.projectile) {
-      // Projectile just stopped — impact flash
+      // Projectile just stopped — impact flash then clear
       impactPosRef.current  = { x: state.projectile.x, y: state.projectile.y };
       const [c1]            = COLOR_GRADIENTS[state.projectile.color];
       impactColorRef.current = c1;
@@ -133,7 +146,12 @@ export const GameScreen: React.FC<GameScreenProps> = ({
       Animated.sequence([
         Animated.timing(impactAnim, { toValue: 1, duration: 280, useNativeDriver: true }),
         Animated.timing(impactAnim, { toValue: 0, duration: 160, useNativeDriver: true }),
-      ]).start(() => setShowImpact(false));
+      ]).start(() => {
+        if (mountedRef.current) {
+          setShowImpact(false);
+          clearProjectile();
+        }
+      });
     }
 
     prevMovingRef.current = isMoving;
@@ -146,10 +164,10 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     if (!last || Math.hypot(x - last.x, y - last.y) > 6) {
       trailRef.current = [
         ...trailRef.current.slice(-10),
-        { x, y, op: 1 },
+        { x, y },
       ];
     }
-  } else if (!state.projectile?.isMoving) {
+  } else {
     trailRef.current = [];
   }
 
@@ -322,7 +340,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     }),
     [aimAt, audio, haptics, isBackSwipe, isValidAimTarget, isPaused, onHome,
      shoot, state.isGameOver, state.isLevelComplete, state.nextBubble.powerUp,
-     state.projectile?.isMoving, aimValidRef],
+     state.projectile?.isMoving],
   );
 
   const poppingSet = useMemo(() => new Set(state.lastPoppedIds), [state.lastPoppedIds]);
@@ -405,18 +423,23 @@ export const GameScreen: React.FC<GameScreenProps> = ({
           />
         )}
 
-        <Cannon
-          angle={state.cannonAngle}
-          currentColor={state.nextBubble.color}
-          currentPowerUp={state.nextBubble.powerUp}
-          isAiming={isAiming && isAimValid && !state.projectile?.isMoving}
-          firedAt={firedAt}
-        />
-
         {popups.map(p => (
           <ScorePopup key={p.id} score={p.score} x={p.x} y={p.y} combo={p.combo} onDone={() => removePopup(p.id)} />
         ))}
       </View>
+
+      {/* Cannon lives outside touchArea so its swap button receives taps without panResponder competition */}
+      <Cannon
+        angle={state.cannonAngle}
+        currentColor={state.nextBubble.color}
+        currentPowerUp={state.nextBubble.powerUp}
+        nextColor={state.bubbleQueue[0]?.color}
+        nextPowerUp={state.bubbleQueue[0]?.powerUp}
+        isAiming={isAiming && isAimValid && !state.projectile?.isMoving}
+        firedAt={firedAt}
+        onSwap={handleSwap}
+        swapDisabled={!!state.projectile?.isMoving}
+      />
 
       {/* ── Danger zone vignette (pulsing red edges when shots ≤ 5) ── */}
       {dangerActive && (
@@ -439,17 +462,16 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         level={state.level}
         shotsLeft={state.shotsLeft}
         combo={state.combo}
-        nextBubble={state.nextBubble}
-        bubbleQueue={state.bubbleQueue}
-        swapsLeft={state.swapsLeft}
         progress={state.initialBubbleCount > 0 ? 1 - state.bubblesRemaining / state.initialBubbleCount : 1}
         coinsEarned={state.coinsEarned}
-        onPause={() => setIsPaused(p => !p)}
-        onBack={onHome}
-        onSwap={swapBubble}
+        shotsSinceDrop={state.shotsSinceDrop}
+        isGameOver={state.isGameOver}
+        isLevelComplete={state.isLevelComplete}
+        onPause={() => { audio.play('button'); setIsPaused(p => !p); }}
+        onBack={() => { audio.play('button'); onHome(); }}
       />
 
-      {(state.isGameOver || state.isLevelComplete || isPaused) && (
+      {((state.isGameOver || state.isLevelComplete) && !state.projectile?.isMoving || isPaused) && (
         <GameOverlay
           type={isPaused ? 'pause' : state.isLevelComplete ? 'levelComplete' : 'gameOver'}
           score={state.score}

@@ -7,7 +7,7 @@ import Svg, {
 import {
   SCREEN_WIDTH, SCREEN_HEIGHT,
   GAME_HEADER_HEIGHT, GRID_OFFSET_Y,
-  CANNON_Y, BUBBLE_DIAMETER,
+  CANNON_Y, BUBBLE_DIAMETER, SIDE_WALL,
 } from '../../constants/gameConfig';
 
 // ─── Derived layout constants ─────────────────────────────────────────────────
@@ -63,16 +63,6 @@ export const Background: React.FC = () => (
           <Stop offset="100%" stopColor="#040100" stopOpacity="1" />
         </LinearGradient>
 
-        <LinearGradient id="bg_colL" x1="0" y1="0" x2="1" y2="0">
-          <Stop offset="0%"   stopColor="#020008" stopOpacity="1" />
-          <Stop offset="62%"  stopColor="#020008" stopOpacity="0.44" />
-          <Stop offset="100%" stopColor="#020008" stopOpacity="0" />
-        </LinearGradient>
-        <LinearGradient id="bg_colR" x1="1" y1="0" x2="0" y2="0">
-          <Stop offset="0%"   stopColor="#020008" stopOpacity="1" />
-          <Stop offset="62%"  stopColor="#020008" stopOpacity="0.44" />
-          <Stop offset="100%" stopColor="#020008" stopOpacity="0" />
-        </LinearGradient>
 
         <RadialGradient id="bg_tL" cx="0%" cy="74%" r="100%">
           <Stop offset="0%"   stopColor="#FF7600" stopOpacity="0.7" />
@@ -123,27 +113,39 @@ export const Background: React.FC = () => (
         ) : null;
       })}
 
-      {/* Side column shadow vignettes */}
-      <Rect x={0}                   y={GRID_OFFSET_Y} width={54} height={FLOOR_TOP - GRID_OFFSET_Y + 130} fill="url(#bg_colL)" />
-      <Rect x={SCREEN_WIDTH - 54}   y={GRID_OFFSET_Y} width={54} height={FLOOR_TOP - GRID_OFFSET_Y + 130} fill="url(#bg_colR)" />
 
-      {/* Column inner-edge accent lines */}
-      <Line x1={30} y1={GRID_OFFSET_Y + 2} x2={30} y2={FLOOR_TOP + 22} stroke="rgba(130,64,0,0.28)" strokeWidth="1" />
-      <Line x1={SCREEN_WIDTH - 30} y1={GRID_OFFSET_Y + 2} x2={SCREEN_WIDTH - 30} y2={FLOOR_TOP + 22} stroke="rgba(130,64,0,0.28)" strokeWidth="1" />
+      {/* ══ Side castle walls — visible frame for the play area ══ */}
+      {/* Left wall */}
+      <Rect
+        x={0} y={GRID_OFFSET_Y - 6}
+        width={SIDE_WALL} height={FLOOR_TOP - GRID_OFFSET_Y + 10}
+        fill="#0a0210"
+      />
+      <Rect
+        x={SIDE_WALL - 1.5} y={GRID_OFFSET_Y - 6}
+        width={1.5} height={FLOOR_TOP - GRID_OFFSET_Y + 10}
+        fill="#B8860B" opacity="0.42"
+      />
+      {/* Right wall */}
+      <Rect
+        x={SCREEN_WIDTH - SIDE_WALL} y={GRID_OFFSET_Y - 6}
+        width={SIDE_WALL} height={FLOOR_TOP - GRID_OFFSET_Y + 10}
+        fill="#0a0210"
+      />
+      <Rect
+        x={SCREEN_WIDTH - SIDE_WALL} y={GRID_OFFSET_Y - 6}
+        width={1.5} height={FLOOR_TOP - GRID_OFFSET_Y + 10}
+        fill="#B8860B" opacity="0.42"
+      />
 
       {/* ══ Grid top gold trim ══ */}
-      <Rect x={0} y={GRID_OFFSET_Y - 2.5} width={SCREEN_WIDTH} height={2.5} fill="#B8860B" opacity="0.72" />
-      <Rect x={0} y={GRID_OFFSET_Y - 8}   width={SCREEN_WIDTH} height={6}   fill="#FFD700" opacity="0.12" />
+      <Rect x={0} y={GRID_OFFSET_Y - 2.5} width={SCREEN_WIDTH} height={2.5} fill="#B8860B" opacity="0.38" />
+      <Rect x={0} y={GRID_OFFSET_Y - 8}   width={SCREEN_WIDTH} height={6}   fill="#FFD700" opacity="0.06" />
 
-      {/* Wall sconce brackets — decorative top-left + top-right */}
-      <Rect x={7}                y={GRID_OFFSET_Y + 8} width={5}  height={18} rx={2} fill="#3a1600" />
-      <Rect x={4}                y={GRID_OFFSET_Y + 4} width={11} height={6}  rx={2} fill="#5c2800" />
-      <Rect x={SCREEN_WIDTH - 12} y={GRID_OFFSET_Y + 8} width={5}  height={18} rx={2} fill="#3a1600" />
-      <Rect x={SCREEN_WIDTH - 15} y={GRID_OFFSET_Y + 4} width={11} height={6}  rx={2} fill="#5c2800" />
 
-      {/* ══ Floor top gold trim ══ */}
-      <Rect x={0} y={FLOOR_TOP}     width={SCREEN_WIDTH} height={2.5} fill="#B8860B" opacity="0.65" />
-      <Rect x={0} y={FLOOR_TOP + 2} width={SCREEN_WIDTH} height={7}   fill="#FFD700" opacity="0.09" />
+      {/* ══ Floor top gold trim — subtle, not a harsh divider ══ */}
+      <Rect x={0} y={FLOOR_TOP}     width={SCREEN_WIDTH} height={1.5} fill="#B8860B" opacity="0.28" />
+      <Rect x={0} y={FLOOR_TOP + 1} width={SCREEN_WIDTH} height={5}   fill="#FFD700" opacity="0.04" />
 
       {/* ══ Stone floor ══ */}
       <Rect x={0} y={FLOOR_TOP + 2} width={SCREEN_WIDTH} height={SCREEN_HEIGHT - FLOOR_TOP - 2} fill="url(#bg_floor)" />

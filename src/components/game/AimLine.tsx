@@ -32,8 +32,8 @@ function computeTrajectory(angle: number): {
   bouncePoint: { x: number; y: number } | null;
 } {
   const vector = angleToUnitVector(angle);
-  const step   = 14;
-  const maxDots = 40;
+  const step   = 12;
+  const maxDots = 55;
 
   // Start exactly where the projectile spawns
   let x   = CANNON_X + vector.x * MUZZLE_OFFSET;
@@ -128,9 +128,9 @@ export const AimLine: React.FC<AimLineProps> = ({ angle, visible }) => {
           <Circle
             key={`pre-${i}`}
             cx={d.x} cy={d.y}
-            r={Math.max(2.4, 5.2 - i * 0.1)}
+            r={Math.max(2.2, 5.0 - i * 0.08)}
             fill={i % 4 === 0 ? '#FFD700' : '#ffffff'}
-            opacity={Math.max(0.2, 0.95 - i * 0.03)}
+            opacity={Math.max(0.18, 0.95 - i * 0.018)}
           />
         ))}
 

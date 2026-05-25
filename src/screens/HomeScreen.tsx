@@ -1,8 +1,9 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
   Animated, Easing, ScrollView, Image,
 } from 'react-native';
+import { useGameAudio } from '../systems/audio';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, {
   Circle, Defs, RadialGradient, LinearGradient as SvgLinear,
@@ -481,6 +482,11 @@ interface HomeScreenProps {
 export const HomeScreen: React.FC<HomeScreenProps> = ({
   progress, onPlay, onSelectLevel, onClaimDaily,
 }) => {
+  const audio = useGameAudio();
+
+  const handlePlay        = useCallback(() => { audio.play('button'); onPlay(); },        [audio, onPlay]);
+  const handleSelectLevel = useCallback(() => { audio.play('button'); onSelectLevel(); }, [audio, onSelectLevel]);
+
   const titleSc = useRef(new Animated.Value(0)).current;
   const titleOp = useRef(new Animated.Value(0)).current;
   const btnSc   = useRef(new Animated.Value(0)).current;
@@ -590,7 +596,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         <GloryCard score={progress.highScore} />
 
         {/* BATTLE! */}
-        <BattleButton onPress={onPlay} pulseAnim={pulse} entranceAnim={btnSc} />
+        <BattleButton onPress={handlePlay} pulseAnim={pulse} entranceAnim={btnSc} />
 
         {/* Three cards */}
         <View style={styles.cardsRow}>
@@ -598,7 +604,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             icon="🗺️"
             label="KINGDOM MAP"
             sub={`👑 ${progress.totalStars}/${MAX_STARS_TOTAL} crowns`}
-            onPress={onSelectLevel}
+            onPress={handleSelectLevel}
             delay={80}
           />
           <MiniCard
@@ -624,7 +630,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       </ScrollView>
 
       {/* Bottom nav */}
-      <BottomNavBar onLevels={onSelectLevel} onBattle={onPlay} />
+      <BottomNavBar onLevels={handleSelectLevel} onBattle={handlePlay} />
 
       {/* Toast */}
       {toast && (

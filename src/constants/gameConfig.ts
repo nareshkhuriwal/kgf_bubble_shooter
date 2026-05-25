@@ -18,10 +18,14 @@ export const COLS = 8;
 export const ROWS = 10;
 export const GAME_HEADER_HEIGHT = Platform.OS === 'web' ? 132 : Math.max(126, Math.min(152, Math.floor(SCREEN_HEIGHT * 0.17)));
 
-export const BUBBLE_RADIUS = Math.floor((SCREEN_WIDTH - 16) / (COLS * 2));
+// Visible wall thickness on each side; bubbles never enter this zone
+export const SIDE_WALL = 6;
+// Bubble radius small enough to leave room for walls + breathing space
+export const BUBBLE_RADIUS = Math.floor(SCREEN_WIDTH / (COLS * 2)) - 3;
 export const BUBBLE_DIAMETER = BUBBLE_RADIUS * 2;
 
-export const GRID_OFFSET_X = (SCREEN_WIDTH - COLS * BUBBLE_DIAMETER) / 2;
+// Centre the grid; any floor residual becomes extra margin
+export const GRID_OFFSET_X = Math.floor((SCREEN_WIDTH - COLS * BUBBLE_DIAMETER) / 2);
 export const GRID_OFFSET_Y = GAME_HEADER_HEIGHT + 18;
 
 export const CANNON_X = SCREEN_WIDTH / 2;
@@ -103,5 +107,11 @@ export const POWER_UP_EMOJI: Record<PowerUpKind, string> = {
   star:      '💫',
 };
 
-// Swap feature
-export const SWAPS_PER_LEVEL = 2;
+// Swap feature — unlimited
+export const SWAPS_PER_LEVEL = Infinity;
+
+// Ceiling drop: grid shifts down one row every N shots
+export const SHOTS_PER_DROP = 8;
+
+// Game over if any bubble reaches this y threshold (too close to cannon)
+export const DANGER_Y = CANNON_Y - 120;

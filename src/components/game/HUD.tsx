@@ -2,8 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Defs, LinearGradient as SvgLG, Stop, Rect } from 'react-native-svg';
-import { COLOR_GRADIENTS, GAME_HEADER_HEIGHT, POWER_UP_EMOJI, SCREEN_WIDTH } from '../../constants/gameConfig';
-import { PlayBubble } from '../../types';
+import { GAME_HEADER_HEIGHT, SCREEN_WIDTH, SHOTS_PER_DROP } from '../../constants/gameConfig';
 
 interface HUDProps {
   score: number;
@@ -11,14 +10,13 @@ interface HUDProps {
   level: number;
   shotsLeft: number;
   combo: number;
-  nextBubble: PlayBubble;
-  bubbleQueue: PlayBubble[];
-  swapsLeft: number;
   progress: number;
   coinsEarned: number;
+  shotsSinceDrop: number;
+  isGameOver?: boolean;
+  isLevelComplete?: boolean;
   onPause?: () => void;
   onBack?: () => void;
-  onSwap?: () => void;
 }
 
 // ─── Animated score counter ───────────────────────────────────────────────────
@@ -152,67 +150,17 @@ const ShotsCounter: React.FC<{ value: number }> = ({ value }) => {
 };
 
 // ─── Queue mini-bubble ────────────────────────────────────────────────────────
-const QueueGem: React.FC<{ bubble: PlayBubble; size?: number }> = ({ bubble, size = 22 }) => {
-  const [c1, c2] = COLOR_GRADIENTS[bubble.color];
-  return (
-    <LinearGradient colors={[c1, c2]} style={[styles.queueGem, { width: size, height: size, borderRadius: size / 2 }]}>
-      <Text style={[styles.queueGemText, { fontSize: size * 0.4 }]}>
-        {bubble.powerUp ? POWER_UP_EMOJI[bubble.powerUp] : '◆'}
-      </Text>
-    </LinearGradient>
-  );
-};
-
-// ─── Swap button ──────────────────────────────────────────────────────────────
-const SwapBtn: React.FC<{ swapsLeft: number; onSwap?: () => void }> = ({ swapsLeft, onSwap }) => {
-  const scale    = useRef(new Animated.Value(1)).current;
-  const disabled = swapsLeft <= 0;
-
-  const handlePress = () => {
-    if (disabled) return;
-    Animated.sequence([
-      Animated.timing(scale, { toValue: 0.82, duration: 65, useNativeDriver: true }),
-      Animated.spring(scale, { toValue: 1, tension: 300, friction: 6, useNativeDriver: true }),
-    ]).start();
-    onSwap?.();
-  };
-
-  return (
-    <TouchableOpacity
-      onPress={handlePress}
-      activeOpacity={disabled ? 1 : 0.7}
-      style={[styles.swapBtn, disabled && styles.swapDisabled]}
-    >
-      <Animated.View style={{ transform: [{ scale }], alignItems: 'center' }}>
-        <Text style={[styles.swapIcon, disabled && styles.swapDim]}>⇄</Text>
-        <Text style={[styles.swapCount, disabled && styles.swapDim]}>{swapsLeft}</Text>
-      </Animated.View>
-    </TouchableOpacity>
-  );
-};
-
 // ─── HUD ──────────────────────────────────────────────────────────────────────
 export const HUD: React.FC<HUDProps> = ({
   score, highScore, level, shotsLeft, combo,
-  nextBubble, bubbleQueue, swapsLeft, progress, coinsEarned,
-  onPause, onBack, onSwap,
+  progress, coinsEarned, shotsSinceDrop,
+  isGameOver = false, isLevelComplete = false,
+  onPause, onBack,
 }) => {
-  const [g1, g2]   = COLOR_GRADIENTS[nextBubble.color];
-  const completion  = Math.max(0, Math.min(1, progress));
-  const queue       = bubbleQueue.slice(0, 2);
-
-  // Next-bubble entrance spring
-  const nextScale = useRef(new Animated.Value(1)).current;
-  const prevColor = useRef(nextBubble.color);
-  useEffect(() => {
-    if (nextBubble.color !== prevColor.current) {
-      prevColor.current = nextBubble.color;
-      Animated.sequence([
-        Animated.spring(nextScale, { toValue: 1.25, tension: 260, friction: 5, useNativeDriver: true }),
-        Animated.spring(nextScale, { toValue: 1,    tension: 200, friction: 8, useNativeDriver: true }),
-      ]).start();
-    }
-  }, [nextBubble.color]);
+  const completion     = Math.max(0, Math.min(1, progress));
+  const shotsUntilDrop = Math.max(1, SHOTS_PER_DROP - shotsSinceDrop);
+  const dropImminent   = shotsUntilDrop <= 2;
+  const showDropPanel  = !isGameOver && !isLevelComplete;
 
   return (
     <View style={styles.shell} pointerEvents="box-none">
@@ -288,36 +236,17 @@ export const HUD: React.FC<HUDProps> = ({
             <ProgressBar completion={completion} />
           </View>
 
-          {/* Right: queue + swap + next */}
-          <View style={styles.bubblePanel}>
-            {/* UP queue */}
-            <View style={styles.queueStack}>
-              <Text style={styles.upLabel}>UP</Text>
-              {queue.map((b, i) => (
-                <View key={i} style={styles.queueSlot}>
-                  <QueueGem bubble={b} size={20} />
-                </View>
-              ))}
+          {/* Right: drop countdown — hidden when game ended */}
+          {showDropPanel && (
+            <View style={[styles.dropPanel, dropImminent && styles.dropPanelAlert]}>
+              <Text style={[styles.dropPanelNum, dropImminent && styles.dropPanelNumAlert]}>
+                {shotsUntilDrop}
+              </Text>
+              <Text style={[styles.dropPanelLabel, dropImminent && styles.dropPanelLabelAlert]}>
+                DROP
+              </Text>
             </View>
-
-            {/* Swap button */}
-            <SwapBtn swapsLeft={swapsLeft} onSwap={onSwap} />
-
-            {/* Separator */}
-            <View style={styles.panelDivider} />
-
-            {/* Next bubble */}
-            <View style={styles.nextSlot}>
-              <Animated.View style={{ transform: [{ scale: nextScale }] }}>
-                <LinearGradient colors={[g1, g2]} style={styles.nextGem}>
-                  <Text style={styles.nextGemText}>
-                    {nextBubble.powerUp ? POWER_UP_EMOJI[nextBubble.powerUp] : '◆'}
-                  </Text>
-                </LinearGradient>
-              </Animated.View>
-              <Text style={styles.nextLabel}>NEXT</Text>
-            </View>
-          </View>
+          )}
         </View>
       </LinearGradient>
     </View>
@@ -401,7 +330,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    minWidth: 110,
+    flexShrink: 1,
   },
   shotsWrap: {
     flexDirection: 'row',
@@ -458,54 +387,27 @@ const styles = StyleSheet.create({
     zIndex: 3,
   },
 
-  // Bubble panel (queue + swap + next)
-  bubblePanel: {
-    flexDirection: 'row',
+  // Drop countdown panel (right of row2)
+  dropPanel: {
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 6, paddingVertical: 4,
-    borderRadius: 12,
-    backgroundColor: 'rgba(20,4,40,0.5)',
-    borderWidth: 1, borderColor: 'rgba(255,215,0,0.18)',
+    paddingHorizontal: 7, paddingVertical: 3,
+    borderRadius: 10,
+    backgroundColor: 'rgba(20,4,40,0.6)',
+    borderWidth: 1, borderColor: 'rgba(255,215,0,0.22)',
+    minWidth: 38,
   },
-  queueStack: { alignItems: 'center', gap: 2 },
-  upLabel:    { color: 'rgba(255,215,0,0.4)', fontSize: 6.5, fontWeight: '900', letterSpacing: 0.8 },
-  queueSlot:  {},
-  queueGem: {
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: 'rgba(255,215,0,0.35)',
+  dropPanelAlert: {
+    backgroundColor: 'rgba(80,10,0,0.7)',
+    borderColor: 'rgba(255,80,0,0.7)',
   },
-  queueGemText: { color: '#fff', fontWeight: '900' },
-
-  swapBtn: {
-    width: 32, height: 42, borderRadius: 9,
-    alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(70,15,5,0.75)',
-    borderWidth: 1.5, borderColor: 'rgba(255,215,0,0.45)',
-    shadowColor: '#FFD700', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.28, shadowRadius: 5,
+  dropPanelNum: {
+    color: 'rgba(255,215,0,0.85)',
+    fontSize: 15, fontWeight: '900', lineHeight: 17,
   },
-  swapDisabled: {
-    backgroundColor: 'rgba(30,30,30,0.5)',
-    borderColor: 'rgba(100,100,100,0.3)',
-    shadowOpacity: 0,
+  dropPanelNumAlert: { color: '#FF6B35' },
+  dropPanelLabel: {
+    color: 'rgba(255,215,0,0.45)',
+    fontSize: 6, fontWeight: '900', letterSpacing: 1,
   },
-  swapIcon:  { color: '#FFD700', fontSize: 14, fontWeight: '900', lineHeight: 16 },
-  swapCount: { color: '#FFD700', fontSize: 8,  fontWeight: '900', lineHeight: 10 },
-  swapDim:   { color: 'rgba(110,110,110,0.5)' },
-
-  panelDivider: {
-    width: 1, height: 34,
-    backgroundColor: 'rgba(255,215,0,0.18)',
-    marginHorizontal: 1,
-  },
-
-  nextSlot: { alignItems: 'center', gap: 2 },
-  nextGem: {
-    width: 34, height: 34, borderRadius: 17,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2, borderColor: 'rgba(255,215,0,0.65)',
-    shadowColor: '#FFD700', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.45, shadowRadius: 8,
-  },
-  nextGemText: { color: '#fff', fontSize: 15, lineHeight: 17, fontWeight: '900' },
-  nextLabel:   { color: 'rgba(255,215,0,0.55)', fontSize: 7, fontWeight: '900', letterSpacing: 1 },
+  dropPanelLabelAlert: { color: 'rgba(255,107,53,0.8)' },
 });

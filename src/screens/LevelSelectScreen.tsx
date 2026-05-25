@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Rect, Circle, Line, Defs, Stop, LinearGradient as SvgLinearGradient } from 'react-native-svg';
 import { PlayerProgress } from '../types';
+import { useGameAudio } from '../systems/audio';
 import { MAX_STARS_TOTAL, SCREEN_WIDTH, SCREEN_HEIGHT } from '../constants/gameConfig';
 import { WORLDS } from '../data/levels';
 
@@ -424,6 +425,11 @@ export const LevelSelectScreen: React.FC<LevelSelectScreenProps> = ({
   onSelectLevel,
   onBack,
 }) => {
+  const audio = useGameAudio();
+
+  const handleBack        = useCallback(() => { audio.play('button'); onBack(); },                [audio, onBack]);
+  const handleSelectLevel = useCallback((level: number) => { audio.play('button'); onSelectLevel(level); }, [audio, onSelectLevel]);
+
   const headerAnim = useRef(new Animated.Value(-20)).current;
   const headerOpAnim = useRef(new Animated.Value(0)).current;
 
@@ -458,7 +464,7 @@ export const LevelSelectScreen: React.FC<LevelSelectScreenProps> = ({
           { transform: [{ translateY: headerAnim }], opacity: headerOpAnim },
         ]}
       >
-        <TouchableOpacity onPress={onBack} style={styles.backBtn} activeOpacity={0.75}>
+        <TouchableOpacity onPress={handleBack} style={styles.backBtn} activeOpacity={0.75}>
           <Text style={styles.backIcon}>←</Text>
         </TouchableOpacity>
 
@@ -501,7 +507,7 @@ export const LevelSelectScreen: React.FC<LevelSelectScreenProps> = ({
                       level={level}
                       stars={stars}
                       unlocked={unlocked}
-                      onPress={() => onSelectLevel(level)}
+                      onPress={() => handleSelectLevel(level)}
                       index={level - 1}
                     />
                   );

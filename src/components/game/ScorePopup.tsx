@@ -44,6 +44,8 @@ export const ScorePopup: React.FC<ScorePopupProps> = ({ score, x, y, combo = 1, 
         Animated.timing(opacity, { toValue: 0, duration: 380, useNativeDriver: true }),
       ]),
     ]).start(onDone);
+  // Empty deps is intentional: each popup instance is mounted once with fixed props
+  // (keyed by id) and unmounted when done, so captured values never go stale.
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const color = isEpic  ? '#FFD700'

@@ -203,3 +203,38 @@ export function countBubbles(grid: (Bubble | null)[][]): number {
   for (const row of grid) for (const b of row) if (b) n++;
   return n;
 }
+
+// Shift all rows down by 1 and prepend a new random row at top.
+// Returns the updated grid with recalculated positions.
+export function dropGrid(
+  grid: (Bubble | null)[][],
+  colors: BubbleColor[],
+  cols: number,
+): (Bubble | null)[][] {
+  // Build new row (row 0 — even row, full cols)
+  const newRow: (Bubble | null)[] = Array.from({ length: cols }, (_, c) => {
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    const pos   = getBubblePosition(0, c);
+    return {
+      id: `drop-0-${c}-${Date.now()}-${Math.random()}`,
+      color,
+      kind: 'normal' as const,
+      row: 0,
+      col: c,
+      x: pos.x,
+      y: pos.y,
+    };
+  });
+
+  // Shift every existing bubble down one row, update row index + position
+  const shifted = grid.map((rowArr, r) =>
+    rowArr.map(b => {
+      if (!b) return null;
+      const newRow = b.row + 1;
+      const pos    = getBubblePosition(newRow, b.col);
+      return { ...b, row: newRow, x: pos.x, y: pos.y };
+    })
+  );
+
+  return [newRow, ...shifted];
+}

@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Defs, RadialGradient, Stop, Circle } from 'react-native-svg';
 import { SCREEN_WIDTH as width } from '../../constants/gameConfig';
+import { useGameAudio } from '../../systems/audio';
 
 type OverlayType = 'gameOver' | 'levelComplete' | 'pause';
 
@@ -136,6 +137,9 @@ export const GameOverlay: React.FC<GameOverlayProps> = ({
   type, score, level, starsEarned, highScore,
   onRestart, onNextLevel, onHome, onResume,
 }) => {
+  const audio = useGameAudio();
+  const btn = useCallback((fn?: () => void) => () => { audio.play('button'); fn?.(); }, [audio]);
+
   const cardScale  = useRef(new Animated.Value(0.72)).current;
   const cardOp     = useRef(new Animated.Value(0)).current;
   const titleSlide = useRef(new Animated.Value(-16)).current;
@@ -301,7 +305,7 @@ export const GameOverlay: React.FC<GameOverlayProps> = ({
           {/* Buttons */}
           <View style={styles.btns}>
             {isPause && (
-              <TouchableOpacity style={styles.btnPrimary} onPress={onResume} activeOpacity={0.82}>
+              <TouchableOpacity style={styles.btnPrimary} onPress={btn(onResume)} activeOpacity={0.82}>
                 <LinearGradient
                   colors={['#8B4513', '#5a2d0a']}
                   style={styles.btnGrad}
@@ -313,7 +317,7 @@ export const GameOverlay: React.FC<GameOverlayProps> = ({
             )}
 
             {isComplete && (
-              <TouchableOpacity style={styles.btnPrimary} onPress={onNextLevel} activeOpacity={0.82}>
+              <TouchableOpacity style={styles.btnPrimary} onPress={btn(onNextLevel)} activeOpacity={0.82}>
                 <LinearGradient
                   colors={['#FFE566', '#FFD700', '#C0392B']}
                   style={styles.btnGrad}
@@ -325,7 +329,7 @@ export const GameOverlay: React.FC<GameOverlayProps> = ({
             )}
 
             {isOver && (
-              <TouchableOpacity style={styles.btnPrimary} onPress={onRestart} activeOpacity={0.82}>
+              <TouchableOpacity style={styles.btnPrimary} onPress={btn(onRestart)} activeOpacity={0.82}>
                 <LinearGradient
                   colors={['#C0392B', '#8B0000', '#5a0000']}
                   style={styles.btnGrad}
@@ -336,7 +340,7 @@ export const GameOverlay: React.FC<GameOverlayProps> = ({
               </TouchableOpacity>
             )}
 
-            <TouchableOpacity style={styles.btnSecondary} onPress={onHome} activeOpacity={0.8}>
+            <TouchableOpacity style={styles.btnSecondary} onPress={btn(onHome)} activeOpacity={0.8}>
               <Text style={styles.btnSecTxt}>🏰  Return to Castle</Text>
             </TouchableOpacity>
           </View>
