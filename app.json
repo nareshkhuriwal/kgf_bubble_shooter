@@ -41,7 +41,8 @@
     },
     "plugins": [
       "expo-av",
-      "./plugins/withAndroid16kbAlignment"
+      "./plugins/withAndroid16kbAlignment",
+      "expo-asset"
     ],
     "extra": {
       "eas": {
