@@ -1,9 +1,10 @@
 node_modules/
-android/
 
 # Build output
 .expo/
 dist/
+
+credentials.json
 
 # Local machine config
 local.properties
