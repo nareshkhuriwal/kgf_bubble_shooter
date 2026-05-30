@@ -1,8 +1,8 @@
 {
   "expo": {
     "name": "Bubble Kingdom",
-    "slug": "bubble-kingdom",
-    "version": "1.0.0",
+    "slug": "bubble-shooter",
+    "version": "1.0.4",
     "orientation": "portrait",
     "icon": "./assets/bubble-kingdom-icon-master.png",
     "userInterfaceStyle": "automatic",
@@ -20,6 +20,7 @@
     },
     "android": {
       "package": "com.khuriwalgroup.bubblekingdom",
+      "versionCode": 9,
       "statusBar": {
         "barStyle": "light-content",
         "backgroundColor": "#0f0f2e"
@@ -31,14 +32,16 @@
       "permissions": [
         "android.permission.INTERNET",
         "android.permission.VIBRATE",
-        "android.permission.MODIFY_AUDIO_SETTINGS"
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
       "bundler": "metro"
     },
     "plugins": [
-      "expo-av"
+      "expo-av",
+      "./plugins/withAndroid16kbAlignment"
     ],
     "extra": {
       "eas": {
