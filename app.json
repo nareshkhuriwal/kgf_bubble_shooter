@@ -19,7 +19,7 @@
       }
     },
     "android": {
-      "package": "com.khuriwalgroup.bubblekingdom",
+      "package": "com.khuriwalgroup.kgfbubblekingdom",
       "versionCode": 9,
       "statusBar": {
         "barStyle": "light-content",

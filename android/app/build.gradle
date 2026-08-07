@@ -86,9 +86,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.khuriwalgroup.bubblekingdom'
+    namespace 'com.khuriwalgroup.kgfbubblekingdom'
     defaultConfig {
-        applicationId 'com.khuriwalgroup.bubblekingdom'
+        applicationId 'com.khuriwalgroup.kgfbubblekingdom'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 9

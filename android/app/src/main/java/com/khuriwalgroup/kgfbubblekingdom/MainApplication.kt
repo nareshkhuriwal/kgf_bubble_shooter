@@ -1,4 +1,4 @@
-package com.khuriwalgroup.bubblekingdom
+package com.khuriwalgroup.kgfbubblekingdom
 
 import android.app.Application
 import android.content.res.Configuration

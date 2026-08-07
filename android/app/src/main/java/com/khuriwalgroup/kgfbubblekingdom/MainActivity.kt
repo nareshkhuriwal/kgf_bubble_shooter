@@ -1,4 +1,4 @@
-package com.khuriwalgroup.bubblekingdom
+package com.khuriwalgroup.kgfbubblekingdom
 
 import android.os.Build
 import android.os.Bundle
