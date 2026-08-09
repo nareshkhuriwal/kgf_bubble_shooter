@@ -35,8 +35,10 @@ export default function App() {
     });
   }, [fadeAnim, scaleAnim]);
 
-  // Called by GameScreen when a level ends — persists to progress
-  const handleLevelComplete = useCallback((level: number, stars: number, score: number) => {
+  // Called by GameScreen when a match ends, won or lost — persists to progress.
+  // saveLevel already handles stars=0 correctly: it banks the high score and
+  // score-based coins without granting stars or unlocking the next level.
+  const handleMatchEnd = useCallback((level: number, stars: number, score: number) => {
     saveLevel(level, stars, score);
   }, [saveLevel]);
 
@@ -62,7 +64,7 @@ export default function App() {
           startLevel={activeLevel}
           initialHighScore={progress.highScore}
           onHome={() => navigate('home')}
-          onLevelComplete={handleLevelComplete}
+          onMatchEnd={handleMatchEnd}
         />
       )}
     </Animated.View>

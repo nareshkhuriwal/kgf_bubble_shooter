@@ -13,6 +13,8 @@ interface HUDProps {
   progress: number;
   coinsEarned: number;
   shotsSinceDrop: number;
+  /** Shots between ceiling drops for this level; 0 hides the countdown. */
+  shotsPerDrop?: number;
   isGameOver?: boolean;
   isLevelComplete?: boolean;
   onPause?: () => void;
@@ -153,12 +155,13 @@ const ShotsCounter: React.FC<{ value: number }> = ({ value }) => {
 // ─── HUD ──────────────────────────────────────────────────────────────────────
 export const HUD: React.FC<HUDProps> = ({
   score, highScore, level, shotsLeft, combo,
-  progress, coinsEarned, shotsSinceDrop,
+  progress, coinsEarned, shotsSinceDrop, shotsPerDrop = SHOTS_PER_DROP,
   isGameOver = false, isLevelComplete = false,
   onPause, onBack,
 }) => {
   const completion     = Math.max(0, Math.min(1, progress));
-  const shotsUntilDrop = Math.max(1, SHOTS_PER_DROP - shotsSinceDrop);
+  const dropsEnabled   = shotsPerDrop > 0;
+  const shotsUntilDrop = Math.max(1, shotsPerDrop - shotsSinceDrop);
   const dropImminent   = shotsUntilDrop <= 2;
   const showDropPanel  = !isGameOver && !isLevelComplete;
 
@@ -236,8 +239,10 @@ export const HUD: React.FC<HUDProps> = ({
             <ProgressBar completion={completion} />
           </View>
 
-          {/* Right: drop countdown — hidden when game ended */}
-          {showDropPanel && (
+          {/* Right: drop countdown — hidden when the game ended, and on levels
+              where the ceiling never drops (otherwise it warns of a drop that
+              is never coming) */}
+          {showDropPanel && dropsEnabled && (
             <View style={[styles.dropPanel, dropImminent && styles.dropPanelAlert]}>
               <Text style={[styles.dropPanelNum, dropImminent && styles.dropPanelNumAlert]}>
                 {shotsUntilDrop}

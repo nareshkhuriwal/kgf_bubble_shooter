@@ -37,7 +37,7 @@ import {
 } from '../utils/physics';
 import { resolvePowerUp } from '../systems/powerups';
 
-function getLevelConfig(level: number) {
+export function getLevelConfig(level: number) {
   return LEVELS[Math.min(level - 1, LEVELS.length - 1)];
 }
 
@@ -72,6 +72,7 @@ function buildInitialState(level: number, highScore: number): GameState {
     lastFallingIds: [],
     bubblesRemaining: initialBubbleCount,
     initialBubbleCount,
+    peakBubbleCount: initialBubbleCount,
     coinsEarned: 0,
     mode: 'classic',
     freezeTicks: 0,
@@ -105,9 +106,11 @@ function gameReducer(state: GameState, action: EngineAction): GameState {
       const muzzleOffset = CANNON_LENGTH + BUBBLE_RADIUS * 0.35;
       const config = getLevelConfig(state.level);
 
-      // Ceiling drop: every SHOTS_PER_DROP shots, shift grid down one row
+      // Ceiling drop: shift the grid down one row every N shots. N comes from
+      // the level so early levels can opt out (0 = never drop).
+      const dropEvery = config.shotsPerDrop ?? SHOTS_PER_DROP;
       const newShotsSinceDrop = state.shotsSinceDrop + 1;
-      const shouldDrop = newShotsSinceDrop >= SHOTS_PER_DROP;
+      const shouldDrop = dropEvery > 0 && newShotsSinceDrop >= dropEvery;
       let droppedGrid = state.grid;
       if (shouldDrop) {
         const liveColors = getColorsInGrid(state.grid);
@@ -291,6 +294,7 @@ function gameReducer(state: GameState, action: EngineAction): GameState {
         lastPoppedIds: poppedIds,
         lastFallingIds: fallingIds,
         bubblesRemaining: totalBubbles,
+        peakBubbleCount: Math.max(state.peakBubbleCount, totalBubbles),
         coinsEarned,
         freezeTicks: Math.max(0, state.freezeTicks - 1) + (powerUpResult?.freezeTicks ?? 0),
         nextBubble: sanitizedNext,

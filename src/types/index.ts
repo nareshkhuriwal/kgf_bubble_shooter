@@ -70,12 +70,18 @@ export interface GameState {
   bubbleQueue: PlayBubble[]; // next 2 upcoming bubbles after nextBubble
   bubblesRemaining: number;
   initialBubbleCount: number;
+  /**
+   * High-water mark of bubbles on the board. The ceiling drop adds rows, so the
+   * board can exceed its starting size; progress is measured against this so the
+   * bar keeps meaning instead of clamping to zero.
+   */
+  peakBubbleCount: number;
   coinsEarned: number;
   mode: GameMode;
   timeLeft?: number;
   freezeTicks: number;
   swapsLeft: number;         // bubble-swap uses remaining this level
-  shotsSinceDrop: number;    // ceiling drops after every SHOTS_PER_DROP shots
+  shotsSinceDrop: number;    // ceiling drops after the level's shotsPerDrop shots
 }
 
 export interface LevelConfig {
@@ -89,6 +95,11 @@ export interface LevelConfig {
   targetScore: number;
   obstacleRate?: number;
   powerUpRate?: number;
+  /**
+   * Shots between ceiling drops. 0 disables the drop entirely, which is how the
+   * opening levels stay winnable while the player is still learning.
+   */
+  shotsPerDrop?: number;
   movingRows?: boolean;
   rotatingLayout?: boolean;
   bubblePattern?: string[][];

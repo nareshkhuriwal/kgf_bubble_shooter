@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import { Animated, BackHandler, View, StyleSheet, PanResponder, StatusBar } from 'react-native';
 import Svg, { Defs, LinearGradient, RadialGradient, Stop, Rect, Line, Circle } from 'react-native-svg';
-import { useGameEngine } from '../hooks/useGameEngine';
+import { useGameEngine, getLevelConfig } from '../hooks/useGameEngine';
 import { useHaptics } from '../hooks/useHaptics';
 import { useScorePopups } from '../hooks/useScorePopups';
 import { Background } from '../components/game/Background';
@@ -60,14 +60,15 @@ interface GameScreenProps {
   startLevel?: number;
   initialHighScore?: number;
   onHome: () => void;
-  onLevelComplete: (level: number, stars: number, score: number) => void;
+  /** Fires once per match on either outcome; stars is 0 on a defeat. */
+  onMatchEnd: (level: number, stars: number, score: number) => void;
 }
 
 export const GameScreen: React.FC<GameScreenProps> = ({
   startLevel = 1,
   initialHighScore = 0,
   onHome,
-  onLevelComplete,
+  onMatchEnd,
 }) => {
   const { state, shoot, aimAt, reset, nextLevel, swapBubble, clearProjectile } = useGameEngine(startLevel, initialHighScore);
 
@@ -246,23 +247,27 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     return () => { dangerLoopRef.current?.stop(); };
   }, [state.shotsLeft, state.isGameOver, state.isLevelComplete]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Level complete ─────────────────────────────────────────────────────────
+  // ── Match ended (won or lost) ──────────────────────────────────────────────
+  // Both outcomes report, so a defeat still banks the score, the high score and
+  // any coins it earned. Losing used to discard all of it while the overlay
+  // still announced "NEW RECORD" off transient engine state.
   useEffect(() => {
-    if (state.isLevelComplete && !reportedRef.current) {
+    const ended = state.isLevelComplete || state.isGameOver;
+    if (ended && !reportedRef.current) {
       reportedRef.current = true;
-      onLevelComplete(state.level, state.starsEarned, state.score);
-      haptics.levelComplete();
-      audio.play('victory');
+      // Stars are only awarded for a clear; a defeat reports 0 so it banks the
+      // score without unlocking the next level.
+      onMatchEnd(state.level, state.isLevelComplete ? state.starsEarned : 0, state.score);
+      if (state.isLevelComplete) {
+        haptics.levelComplete();
+        audio.play('victory');
+      } else {
+        haptics.gameOver();
+        audio.play('gameOver');
+      }
     }
-    if (!state.isLevelComplete) reportedRef.current = false;
-  }, [state.isLevelComplete]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Game over ──────────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!state.isGameOver) return;
-    haptics.gameOver();
-    audio.play('gameOver');
-  }, [state.isGameOver]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!ended) reportedRef.current = false;
+  }, [state.isLevelComplete, state.isGameOver]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Android hardware back button ───────────────────────────────────────────
   useEffect(() => {
@@ -462,9 +467,10 @@ export const GameScreen: React.FC<GameScreenProps> = ({
         level={state.level}
         shotsLeft={state.shotsLeft}
         combo={state.combo}
-        progress={state.initialBubbleCount > 0 ? 1 - state.bubblesRemaining / state.initialBubbleCount : 1}
+        progress={state.peakBubbleCount > 0 ? 1 - state.bubblesRemaining / state.peakBubbleCount : 1}
         coinsEarned={state.coinsEarned}
         shotsSinceDrop={state.shotsSinceDrop}
+        shotsPerDrop={getLevelConfig(state.level).shotsPerDrop}
         isGameOver={state.isGameOver}
         isLevelComplete={state.isLevelComplete}
         onPause={() => { audio.play('button'); setIsPaused(p => !p); }}

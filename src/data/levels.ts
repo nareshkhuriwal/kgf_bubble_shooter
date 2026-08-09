@@ -51,6 +51,11 @@ export const LEVELS: LevelConfig[] = Array.from({ length: 32 }, (_, index) => {
     shotsAllowed: Math.max(22, 34 + world * 2 - Math.floor(index * 0.45)),
     targetScore: 300 + level * 260 + Math.floor(level * level * 10),
     obstacleRate: level < 7 ? 0 : Math.min(0.18, 0.035 + difficulty * 0.15),
+    // Winning means clearing every bubble, so a ceiling drop that fires too
+    // often outruns the shot budget and makes the level unwinnable. The first
+    // four levels have no drop at all; after that it tightens from 14 shots
+    // down to 8 as the player gets to grips with it.
+    shotsPerDrop: level <= 4 ? 0 : Math.max(8, 14 - Math.floor(index * 0.22)),
     powerUpRate: Math.min(0.16, 0.04 + difficulty * 0.1),
     movingRows: level >= 13 && level % 4 === 0,
     rotatingLayout: level >= 21 && level % 5 === 0,
