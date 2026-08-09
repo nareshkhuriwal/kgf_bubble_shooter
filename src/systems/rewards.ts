@@ -6,6 +6,15 @@ function dayStamp(date = new Date()) {
   return date.toISOString().slice(0, 10);
 }
 
+/**
+ * Whether today's reward is still unclaimed. Mirrors the guard in
+ * claimDailyReward so the UI can show an "available" hint without
+ * claiming — keep the two in step.
+ */
+export function isDailyRewardAvailable(progress: PlayerProgress): boolean {
+  return progress.lastDailyRewardAt !== dayStamp();
+}
+
 export function claimDailyReward(progress: PlayerProgress): { progress: PlayerProgress; reward: number; claimed: boolean } {
   const today = dayStamp();
   if (progress.lastDailyRewardAt === today) {
