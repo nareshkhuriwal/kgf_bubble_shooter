@@ -211,30 +211,38 @@ export function dropGrid(
   colors: BubbleColor[],
   cols: number,
 ): (Bubble | null)[][] {
-  // Build new row (row 0 — even row, full cols)
-  const newRow: (Bubble | null)[] = Array.from({ length: cols }, (_, c) => {
-    const color = colors[Math.floor(Math.random() * colors.length)];
-    const pos   = getBubblePosition(0, c);
-    return {
-      id: `drop-0-${c}-${Date.now()}-${Math.random()}`,
-      color,
-      kind: 'normal' as const,
-      row: 0,
-      col: c,
-      x: pos.x,
-      y: pos.y,
-    };
-  });
+  // Shift by TWO rows, not one.
+  //
+  // This is an offset hex grid: getBubblePosition() and getNeighbors() both
+  // branch on `row % 2`. Moving the stack down a single row inverts the parity
+  // of every bubble, which slides alternate rows sideways by half a diameter
+  // and rewrites the adjacency graph — bubbles that were touching come apart
+  // and unrelated ones are treated as joined. Shifting two rows keeps every
+  // bubble's parity, so the stack translates rigidly and stays intact.
+  const stamp = Date.now();
+  const makeRow = (row: number): (Bubble | null)[] =>
+    Array.from({ length: cols }, (_, c) => {
+      const color = colors[Math.floor(Math.random() * colors.length)];
+      const pos   = getBubblePosition(row, c);
+      return {
+        id: `drop-${row}-${c}-${stamp}-${Math.random()}`,
+        color,
+        kind: 'normal' as const,
+        row,
+        col: c,
+        x: pos.x,
+        y: pos.y,
+      };
+    });
 
-  // Shift every existing bubble down one row, update row index + position
-  const shifted = grid.map((rowArr, r) =>
+  const shifted = grid.map(rowArr =>
     rowArr.map(b => {
       if (!b) return null;
-      const newRow = b.row + 1;
+      const newRow = b.row + 2;
       const pos    = getBubblePosition(newRow, b.col);
       return { ...b, row: newRow, x: pos.x, y: pos.y };
     })
   );
 
-  return [newRow, ...shifted];
+  return [makeRow(0), makeRow(1), ...shifted];
 }

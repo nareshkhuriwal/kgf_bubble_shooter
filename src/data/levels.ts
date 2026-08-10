@@ -53,9 +53,13 @@ export const LEVELS: LevelConfig[] = Array.from({ length: 32 }, (_, index) => {
     obstacleRate: level < 7 ? 0 : Math.min(0.18, 0.035 + difficulty * 0.15),
     // Winning means clearing every bubble, so a ceiling drop that fires too
     // often outruns the shot budget and makes the level unwinnable. The first
-    // four levels have no drop at all; after that it tightens from 14 shots
-    // down to 8 as the player gets to grips with it.
-    shotsPerDrop: level <= 4 ? 0 : Math.max(8, 14 - Math.floor(index * 0.22)),
+    // four levels have no drop at all; after that it tightens as the player
+    // gets to grips with it.
+    //
+    // A drop adds two rows (see dropGrid — one row would invert the hex grid's
+    // parity and tear the stack apart), so these intervals are doubled to keep
+    // the bubbles-per-shot pressure the same.
+    shotsPerDrop: level <= 4 ? 0 : Math.max(16, 28 - Math.floor(index * 0.44)),
     powerUpRate: Math.min(0.16, 0.04 + difficulty * 0.1),
     movingRows: level >= 13 && level % 4 === 0,
     rotatingLayout: level >= 21 && level % 5 === 0,

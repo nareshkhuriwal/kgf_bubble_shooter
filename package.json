@@ -13,7 +13,8 @@
     "android:bundle:eas": "eas build --platform android --profile production",
     "android:submit:eas": "eas submit --platform android --profile production",
     "lint": "eslint .",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "check:grid": "tsc scripts/grid-drop-check.ts --outDir scripts/.gridcheck/out --module commonjs --target es2020 --moduleResolution node --skipLibCheck --esModuleInterop && node scripts/.gridcheck/out/scripts/grid-drop-check.js"
   },
   "dependencies": {
     "@expo/metro-runtime": "~4.0.1",
